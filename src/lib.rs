@@ -1,19 +1,15 @@
-mod protos;
-
-use std::io::Write;
-
-use protos::orc_proto;
-use protobuf::{RepeatedField, CodedOutputStream, Message};
-use protobuf::error::ProtobufResult;
-
-struct Field {
+pub struct Field {
     name: String,
     schema: TypeDescription
 }
 
-enum TypeDescription {
+pub enum TypeDescription {
     Int,
     Struct(Vec<Field>)
+}
+
+struct TypeData {
+    id: u32,
 }
 
 struct Writer<'a, T: Write> {
@@ -21,34 +17,18 @@ struct Writer<'a, T: Write> {
     schema: &'a TypeDescription
 }
 
-impl<'a, T: Write> Writer<'a, T> {
-    pub fn new(inner: T, schema: &'a TypeDescription) -> Writer<T> {
-        Writer { 
-            inner,
-            schema
-        }
-    }
 
-    fn write_types(&mut self) {
-        
-    }
 
-    fn write_footer(&mut self) {
-        let mut coded_out = CodedOutputStream::new(&mut self.inner);
-        let mut footer = orc_proto::Footer::new();
-        footer.set_headerLength(10);
-        footer.set_contentLength(20);
-        footer.set_stripes(RepeatedField::from_vec(vec![]));
-        footer.write_to(&mut coded_out).unwrap();
-        coded_out.flush().unwrap();
-        //   repeated Type types = 4;
-        //   repeated UserMetadataItem metadata = 5;
-        //   optional uint64 numberOfRows = 6;
-        //   repeated ColumnStatistics statistics = 7;
-        //   optional uint32 rowIndexStride = 8;        
-        
-    }
+
+
+struct RowBatch {
+
 }
+
+mod protos;
+mod buffer;
+mod reader;
+mod writer;
 
 #[cfg(test)]
 mod tests {
