@@ -2,13 +2,17 @@ use super::encoder::{BooleanRLE, SignedIntRLEv1};
 use super::super::schema::{Schema, Field};
 
 pub struct LongData {
+    column_id: u32,
     present: BooleanRLE,
     data: SignedIntRLEv1,
 }
 
 impl LongData {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(column_id: &mut u32) -> Self {
+        let cid = *column_id;
+        *column_id += 1;
         LongData {
+            column_id: cid,
             present: BooleanRLE::new(),
             data: SignedIntRLEv1::new(),
         }
@@ -26,15 +30,24 @@ impl LongData {
 }
 
 pub struct StructData {
+    column_id: u32,
     present: BooleanRLE,
     children: Vec<Data>
 }
 
 impl StructData {
-    pub(crate) fn new(fields: &[Field]) -> Self {
+    pub(crate) fn new(fields: &[Field], column_id: &mut u32) -> Self {
+        let cid = *column_id;
+        let mut children: Vec<Data> = Vec::new();
+        for field in fields {
+            *column_id += 1;
+            children.push(Data::new(&field.schema, column_id));
+        }
+
         StructData {
+            column_id: cid,
             present: BooleanRLE::new(),
-            children: fields.iter().map(|x| Data::new(&x.schema)).collect()
+            children: children,
         }
     }
 }
@@ -45,10 +58,10 @@ pub enum Data {
 }
 
 impl Data {
-    pub(crate) fn new(schema: &Schema) -> Self {
+    pub(crate) fn new(schema: &Schema, column_id: &mut u32) -> Self {
         match schema {
-            Schema::Int => Data::Long(LongData::new()),
-            Schema::Struct(fields) => Data::Struct(StructData::new(fields)),
+            Schema::Long => Data::Long(LongData::new(column_id)),
+            Schema::Struct(fields) => Data::Struct(StructData::new(fields, column_id)),
         }
     }
 }
