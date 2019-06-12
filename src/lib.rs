@@ -18,7 +18,7 @@ mod tests {
         let mut out = File::create("target/test.orc")?;
         // let mut v: Vec<u8> = vec![];
         let config = Config::default();
-        let writer = Writer::new(&mut out, &schema, &config);
+        let writer = Writer::new(&mut out, &schema, &config)?;
         writer.finish()?;
         println!("{:?}", out);
         Ok(())
