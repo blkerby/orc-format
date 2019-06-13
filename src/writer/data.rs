@@ -1,15 +1,18 @@
 use std::io::{Write, Result};
 use enum_dispatch::enum_dispatch;
 
+use crate::protos::orc_proto;
 use crate::schema::{Schema, Field};
 use super::encoder::{BooleanRLE, SignedIntRLEv1, UnsignedIntRLEv1};
 use super::stripe::StreamInfo;
+use super::statistics::{Statistics, LongStatistics, StructStatistics};
 
 #[enum_dispatch]
 pub trait BaseData<'a> {
     fn column_id(&self) -> u32;
     fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<usize>;
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<usize>;
+    fn statistics(&mut self, out: &mut Vec<Statistics>);
 }
 
 pub struct LongData<'a> {
@@ -17,6 +20,7 @@ pub struct LongData<'a> {
     pub(crate) schema: &'a Schema,
     present: BooleanRLE,
     data: SignedIntRLEv1,
+    stats: LongStatistics,
 }
 
 impl<'a> LongData<'a> {
@@ -28,6 +32,7 @@ impl<'a> LongData<'a> {
             schema,
             present: BooleanRLE::new(),
             data: SignedIntRLEv1::new(),
+            stats: LongStatistics::new(),
         }
     }
 
@@ -37,8 +42,11 @@ impl<'a> LongData<'a> {
                 self.present.write(true);
                 self.data.write(y);
             }
-            None => { self.present.write(false); }
+            None => { 
+                self.present.write(false); 
+            }
         }
+        self.stats.update(x);
     }
 }
 
@@ -51,10 +59,22 @@ impl<'a> BaseData<'a> for LongData<'a> {
 
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<usize> {
         let present_len = self.present.finish(out);
-
-
+        stream_infos_out.push(StreamInfo {
+            kind: orc_proto::Stream_Kind::PRESENT,
+            column_id: self.column_id,
+            length: present_len as u64,
+        });
         let data_len = self.data.finish(out);
+        stream_infos_out.push(StreamInfo {
+            kind: orc_proto::Stream_Kind::DATA,
+            column_id: self.column_id,
+            length: present_len as u64,
+        });
         Ok(present_len + data_len)
+    }
+
+    fn statistics(&mut self, out: &mut Vec<Statistics>) {
+        out.push(Statistics::Long(self.stats));
     }
 }
 
@@ -63,6 +83,7 @@ pub struct StructData<'a> {
     pub(crate) fields: &'a [Field],
     pub(crate) children: Vec<Data<'a>>,
     present: BooleanRLE,
+    stats: StructStatistics,
 }
 
 impl<'a> StructData<'a> {
@@ -79,6 +100,7 @@ impl<'a> StructData<'a> {
             fields,
             present: BooleanRLE::new(),
             children: children,
+            stats: StructStatistics::new(),
         }
     }
 
@@ -88,6 +110,7 @@ impl<'a> StructData<'a> {
 
     pub fn write(&mut self, present: bool) {
         self.present.write(present);
+        self.stats.update(present);
     }
 
     pub fn column_id(&self) -> u32 { self.column_id }
@@ -101,7 +124,15 @@ impl<'a> BaseData<'a> for StructData<'a> {
     }
 
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<usize> {
-        Ok(0)
+        let mut len = 0;
+        for child in &mut self.children {
+            len += child.write_data_streams(out, stream_infos_out)?;
+        }
+        Ok(len)
+    }
+
+    fn statistics(&mut self, out: &mut Vec<Statistics>) {
+        out.push(Statistics::Struct(self.stats));
     }
 }
 

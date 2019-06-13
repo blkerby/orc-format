@@ -3,7 +3,7 @@ use std::io::{Write, Result};
 use crate::protos::orc_proto;
 use crate::schema::Schema;
 
-use super::data::Data;
+use super::data::{Data, BaseData};
 use super::statistics::Statistics;
 
 
@@ -50,8 +50,8 @@ impl<'a> Stripe<'a> {
         if self.num_rows == 0 { return Ok(None) }
         let mut stream_infos: Vec<StreamInfo> = Vec::new();
         // let statistics = self.data.statistics();
-        // let index_length = self.data.write_index_streams(&mut out, &mut stream_infos)?;
-        // let data_length = self.data.write_data_streams(&mut out, &mut stream_infos)?;
+        let index_length = self.data.write_index_streams(out, &mut stream_infos)?;
+        let data_length = self.data.write_data_streams(out, &mut stream_infos)?;
         // self.data.reset();
         let footer_length = self.write_footer()?;
         // Ok(Some(StripeInfo {
