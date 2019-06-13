@@ -2,7 +2,7 @@ use std::io::{Write, Result};
 use enum_dispatch::enum_dispatch;
 
 use crate::schema::{Schema, Field};
-use super::encoder::{BooleanRLE, SignedIntRLEv1};
+use super::encoder::{BooleanRLE, SignedIntRLEv1, UnsignedIntRLEv1};
 use super::stripe::StreamInfo;
 
 #[enum_dispatch]
