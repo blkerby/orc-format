@@ -1,6 +1,13 @@
 use std::cmp;
+use std::ops::Add;
 
-#[derive(Copy, Clone)]
+trait BaseStatistics {
+    fn num_rows(&self) -> u64;
+    fn has_null(&self) -> bool;
+    fn merge(&mut self, rhs: &Self);
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct LongStatistics {
     pub num_rows: u64,
     pub has_null: bool,
@@ -39,7 +46,52 @@ impl LongStatistics {
     }
 }
 
-#[derive(Copy, Clone)]
+fn merge_min<T: Ord>(x: Option<T>, y: Option<T>) -> Option<T> {
+    match x {
+        None => y,
+        Some(a) => match y {
+            None => None,
+            Some(b) => Some(cmp::min(a, b))
+        }
+    }
+}
+
+fn merge_max<T: Ord>(x: Option<T>, y: Option<T>) -> Option<T> {
+    match x {
+        None => y,
+        Some(a) => match y {
+            None => None,
+            Some(b) => Some(cmp::max(a, b))
+        }
+    }
+}
+
+fn merge_sum<T: Add<Output=T>>(x: Option<T>, y: Option<T>) -> Option<T> {
+    match x {
+        None => None,
+        Some(a) => match y {
+            None => None,
+            Some(b) => Some(a + b)
+        }
+    }
+}
+
+
+impl BaseStatistics for LongStatistics {
+    fn num_rows(&self) -> u64 { self.num_rows }
+
+    fn has_null(&self) -> bool { self.has_null }
+
+    fn merge(&mut self, rhs: &Self) {
+        self.has_null = self.has_null || rhs.has_null;
+        self.num_rows = self.num_rows + rhs.num_rows;
+        self.min = merge_min(self.min, rhs.min);
+        self.max = merge_max(self.max, rhs.max);
+        self.sum = merge_sum(self.sum, rhs.sum);
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct StructStatistics {
     pub num_rows: u64,
     pub has_null: bool,
@@ -61,8 +113,52 @@ impl StructStatistics {
     }
 }
 
-#[derive(Copy, Clone)]
+impl BaseStatistics for StructStatistics {
+    fn num_rows(&self) -> u64 { self.num_rows }
+    
+    fn has_null(&self) -> bool { self.has_null }
+
+    fn merge(&mut self, rhs: &Self) {
+        self.has_null = self.has_null || rhs.has_null;
+        self.num_rows = self.num_rows + rhs.num_rows;
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
 pub enum Statistics {
     Long(LongStatistics),
     Struct(StructStatistics),
+}
+
+impl Statistics {
+    fn unwrap_long(&self) -> &LongStatistics { 
+        if let Statistics::Long(x) = self { x } else { panic!("invalid argument to unwrap_long"); }
+    }
+
+    fn unwrap_struct(&self) -> &StructStatistics { 
+        if let Statistics::Struct(x) = self { x } else { panic!("invalid argument to unwrap_struct"); }
+    }
+}
+
+impl BaseStatistics for Statistics {
+    fn num_rows(&self) -> u64 {
+        match self {
+            Statistics::Long(x) => x.num_rows(),
+            Statistics::Struct(x) => x.num_rows(),
+        }
+    }
+
+    fn has_null(&self) -> bool {
+        match self {
+            Statistics::Long(x) => x.has_null(),
+            Statistics::Struct(x) => x.has_null(),
+        }
+    }
+
+    fn merge(&mut self, rhs: &Statistics) {
+        match self {
+            Statistics::Long(x) => x.merge(rhs.unwrap_long()),
+            Statistics::Struct(x) => x.merge(rhs.unwrap_struct()),
+        }
+    }
 }

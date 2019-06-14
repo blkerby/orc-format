@@ -10,9 +10,10 @@ use super::statistics::{Statistics, LongStatistics, StructStatistics};
 #[enum_dispatch]
 pub trait BaseData<'a> {
     fn column_id(&self) -> u32;
-    fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<usize>;
-    fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<usize>;
-    fn statistics(&mut self, out: &mut Vec<Statistics>);
+    fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64>;
+    fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64>;
+    fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>);
+    fn statistics(&self, out: &mut Vec<Statistics>);
 }
 
 pub struct LongData<'a> {
@@ -53,18 +54,18 @@ impl<'a> LongData<'a> {
 impl<'a> BaseData<'a> for LongData<'a> {
     fn column_id(&self) -> u32 { self.column_id }
 
-    fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<usize> {
+    fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
         Ok(0)
     }
 
-    fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<usize> {
-        let present_len = self.present.finish(out);
+    fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
+        let present_len = self.present.finish(out)?;
         stream_infos_out.push(StreamInfo {
             kind: orc_proto::Stream_Kind::PRESENT,
             column_id: self.column_id,
             length: present_len as u64,
         });
-        let data_len = self.data.finish(out);
+        let data_len = self.data.finish(out)?;
         stream_infos_out.push(StreamInfo {
             kind: orc_proto::Stream_Kind::DATA,
             column_id: self.column_id,
@@ -73,7 +74,13 @@ impl<'a> BaseData<'a> for LongData<'a> {
         Ok(present_len + data_len)
     }
 
-    fn statistics(&mut self, out: &mut Vec<Statistics>) {
+    fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>) {
+        let mut encoding = orc_proto::ColumnEncoding::new();
+        encoding.set_kind(orc_proto::ColumnEncoding_Kind::DIRECT);
+        out.push(encoding);
+    }
+
+    fn statistics(&self, out: &mut Vec<Statistics>) {
         out.push(Statistics::Long(self.stats));
     }
 }
@@ -119,19 +126,31 @@ impl<'a> StructData<'a> {
 impl<'a> BaseData<'a> for StructData<'a> {
     fn column_id(&self) -> u32 { self.column_id }
 
-    fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<usize> {
+    fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
         Ok(0)
     }
 
-    fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<usize> {
-        let mut len = 0;
+    fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
+        let mut present_len = self.present.finish(out)?;
+        stream_infos_out.push(StreamInfo {
+            kind: orc_proto::Stream_Kind::PRESENT,
+            column_id: self.column_id,
+            length: present_len as u64,
+        });
+        let mut children_len = 0;
         for child in &mut self.children {
-            len += child.write_data_streams(out, stream_infos_out)?;
+            children_len += child.write_data_streams(out, stream_infos_out)?;
         }
-        Ok(len)
+        Ok(present_len + children_len)
     }
 
-    fn statistics(&mut self, out: &mut Vec<Statistics>) {
+    fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>) {
+        let mut encoding = orc_proto::ColumnEncoding::new();
+        encoding.set_kind(orc_proto::ColumnEncoding_Kind::DIRECT);
+        out.push(encoding);
+    }
+
+    fn statistics(&self, out: &mut Vec<Statistics>) {
         out.push(Statistics::Struct(self.stats));
     }
 }

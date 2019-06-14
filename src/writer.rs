@@ -5,48 +5,15 @@ use protobuf::error::ProtobufResult;
 
 use super::protos::orc_proto;
 use super::schema::Schema;
-use data::{Data, BaseData};
 use stripe::{Stripe, StripeInfo};
-use statistics::Statistics;
+use statistics::{Statistics, LongStatistics, StructStatistics};
+
+pub use data::{Data, BaseData, LongData, StructData};
 
 mod encoder;
 mod data;
 mod statistics;
 mod stripe;
-
-
-struct Buffer(Vec<u8>);
-
-// impl Write for Buffer {
-//     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-//         self.0.write(buf)
-//     }
-
-//     fn flush(&mut self) -> Result<()> {
-//         Ok(())
-//     }
-// }
-
-impl Buffer {
-    pub fn new() -> Self {
-        Buffer(Vec::new())
-    }
-
-    pub fn finish<W: Write>(&mut self, out: &mut W) -> usize {
-        let len = self.0.len();
-        out.write_all(&self.0);
-        self.0.clear();
-        len
-    }
-
-    pub fn write_u8(&mut self, b: u8) {
-        self.0.push(b);
-    }
-
-    pub fn write_bytes(&mut self, buf: &[u8]) {
-        self.0.extend(buf);
-    }
-}
 
 pub struct Config {
     row_index_stride: u32,
@@ -55,7 +22,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            row_index_stride: 10000,
+            row_index_stride: 0, //10000,
         }
     }
 }
@@ -94,7 +61,7 @@ impl<'a, W: Write> Writer<'a, W> {
     }
 
     pub fn finish(mut self) -> Result<()>{
-        self.current_stripe.finish(&mut self.inner)?;
+        self.current_stripe.finish(&mut self.inner, &mut self.stripe_infos)?;
         let content_length = self.current_stripe.offset - Self::HEADER_LENGTH;
         let metadata_length = self.write_metadata()?;
         let footer_length = self.write_footer(content_length)?;
@@ -108,7 +75,35 @@ impl<'a, W: Write> Writer<'a, W> {
     }
 
     fn write_metadata(&mut self) -> Result<u64> {
-        Ok(0)
+        let mut coded_out = CodedOutputStream::new(&mut self.inner);
+        let mut metadata = orc_proto::Metadata::new();
+        let mut stripe_statistics: Vec<orc_proto::StripeStatistics> = Vec::new();
+        for stripe_info in &self.stripe_infos {
+            let mut stripe_stats = orc_proto::StripeStatistics::new();
+            let mut col_stats: Vec<orc_proto::ColumnStatistics> = Vec::new();
+            for info_stat in &stripe_info.statistics {
+                let mut stat = orc_proto::ColumnStatistics::new();
+                match info_stat {
+                    Statistics::Long(long_statistics) => {
+                        let mut int_stat = orc_proto::IntegerStatistics::new();
+                        if let Some(x) = long_statistics.min { int_stat.set_minimum(x); }
+                        if let Some(x) = long_statistics.max { int_stat.set_maximum(x); }
+                        if let Some(x) = long_statistics.sum { int_stat.set_sum(x); }
+                        stat.set_intStatistics(int_stat);
+                        stat.set_numberOfValues(long_statistics.num_rows);
+                        stat.set_hasNull(long_statistics.has_null);
+                    }
+                    _ => unimplemented!()
+                }
+                col_stats.push(stat);
+            }
+            stripe_stats.set_colStats(RepeatedField::from_vec(col_stats));
+            stripe_statistics.push(stripe_stats);
+        }
+        metadata.set_stripeStats(RepeatedField::from_vec(stripe_statistics));
+        metadata.write_to(&mut coded_out);
+        coded_out.flush()?;
+        Ok(metadata.compute_size() as u64)
     }
 
     fn make_types(data: &Data<'a>, types: &mut Vec<orc_proto::Type>) {
@@ -153,6 +148,7 @@ impl<'a, W: Write> Writer<'a, W> {
             stripe.set_dataLength(stripe_info.data_length);
             stripe.set_footerLength(stripe_info.data_length);
             stripe.set_numberOfRows(stripe_info.num_rows);
+            stripes.push(stripe);
         }
         footer.set_stripes(RepeatedField::from_vec(stripes));
         

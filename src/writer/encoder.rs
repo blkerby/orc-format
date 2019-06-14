@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{Write, Result};
 use std::slice;
 use std::iter;
 
@@ -19,11 +19,11 @@ impl Buffer {
         Buffer(Vec::new())
     }
 
-    pub fn finish<W: Write>(&mut self, out: &mut W) -> usize {
+    pub fn finish<W: Write>(&mut self, out: &mut W) -> Result<u64> {
         let len = self.0.len();
-        out.write_all(&self.0);
+        out.write_all(&self.0)?;
         self.0.clear();
-        len
+        Ok(len as u64)
     }
 
     pub fn write_u8(&mut self, b: u8) {
@@ -34,7 +34,6 @@ impl Buffer {
         self.0.extend(buf);
     }
 }
-
 
 
 pub struct ByteRLE {
@@ -93,7 +92,7 @@ impl ByteRLE {
         }
     }
 
-    pub fn finish<W: Write>(&mut self, w: &mut W) -> usize {
+    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> {
         self.finish_group();
         self.sink.finish(w)
     }
@@ -124,7 +123,7 @@ impl BooleanRLE {
         }
     }
 
-    pub fn finish<W: Write>(&mut self, out: &mut W) -> usize {
+    pub fn finish<W: Write>(&mut self, out: &mut W) -> Result<u64> {
         if self.cnt > 0 {
             self.byte_rle.write(self.buf << (8 - self.cnt));
         }
@@ -233,7 +232,7 @@ impl<T: VarInt> IntRLEv1<T> {
         }
     }
 
-    pub fn finish<W: Write>(&mut self, w: &mut W) -> usize {
+    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> {
         self.finish_group();
         self.sink.finish(w)
     }
@@ -244,7 +243,7 @@ pub struct SignedIntRLEv1(IntRLEv1<i64>);
 impl SignedIntRLEv1 {
     pub fn new() -> Self { SignedIntRLEv1(IntRLEv1::new()) }
     pub fn write(&mut self, x: i64) { self.0.write(x); }
-    pub fn finish<W: Write>(&mut self, w: &mut W) -> usize { self.0.finish(w) }
+    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> { self.0.finish(w) }
 }
 
 pub struct UnsignedIntRLEv1(IntRLEv1<u64>);
@@ -252,7 +251,7 @@ pub struct UnsignedIntRLEv1(IntRLEv1<u64>);
 impl UnsignedIntRLEv1 {
     pub fn new() -> Self { UnsignedIntRLEv1(IntRLEv1::new()) }
     pub fn write(&mut self, x: u64) { self.0.write(x); }
-    pub fn finish<W: Write>(&mut self, w: &mut W) -> usize { self.0.finish(w) }
+    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> { self.0.finish(w) }
 }
 
 #[cfg(test)]
