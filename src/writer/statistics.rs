@@ -1,10 +1,42 @@
 use std::cmp;
 use std::ops::Add;
 
-trait BaseStatistics {
+use crate::protos::orc_proto;
+
+pub trait BaseStatistics {
     fn num_rows(&self) -> u64;
     fn has_null(&self) -> bool;
     fn merge(&mut self, rhs: &Self);
+}
+
+fn merge_min<T: Ord>(x: Option<T>, y: Option<T>) -> Option<T> {
+    match x {
+        None => y,
+        Some(a) => match y {
+            None => None,
+            Some(b) => Some(cmp::min(a, b))
+        }
+    }
+}
+
+fn merge_max<T: Ord>(x: Option<T>, y: Option<T>) -> Option<T> {
+    match x {
+        None => y,
+        Some(a) => match y {
+            None => None,
+            Some(b) => Some(cmp::max(a, b))
+        }
+    }
+}
+
+fn merge_sum<T: Add<Output=T>>(x: Option<T>, y: Option<T>) -> Option<T> {
+    match x {
+        None => None,
+        Some(a) => match y {
+            None => None,
+            Some(b) => Some(a + b)
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -45,37 +77,6 @@ impl LongStatistics {
         self.num_rows += 1;
     }
 }
-
-fn merge_min<T: Ord>(x: Option<T>, y: Option<T>) -> Option<T> {
-    match x {
-        None => y,
-        Some(a) => match y {
-            None => None,
-            Some(b) => Some(cmp::min(a, b))
-        }
-    }
-}
-
-fn merge_max<T: Ord>(x: Option<T>, y: Option<T>) -> Option<T> {
-    match x {
-        None => y,
-        Some(a) => match y {
-            None => None,
-            Some(b) => Some(cmp::max(a, b))
-        }
-    }
-}
-
-fn merge_sum<T: Add<Output=T>>(x: Option<T>, y: Option<T>) -> Option<T> {
-    match x {
-        None => None,
-        Some(a) => match y {
-            None => None,
-            Some(b) => Some(a + b)
-        }
-    }
-}
-
 
 impl BaseStatistics for LongStatistics {
     fn num_rows(&self) -> u64 { self.num_rows }
@@ -131,12 +132,29 @@ pub enum Statistics {
 }
 
 impl Statistics {
-    fn unwrap_long(&self) -> &LongStatistics { 
+    pub fn unwrap_long(&self) -> &LongStatistics { 
         if let Statistics::Long(x) = self { x } else { panic!("invalid argument to unwrap_long"); }
     }
 
-    fn unwrap_struct(&self) -> &StructStatistics { 
+    pub fn unwrap_struct(&self) -> &StructStatistics { 
         if let Statistics::Struct(x) = self { x } else { panic!("invalid argument to unwrap_struct"); }
+    }
+
+    pub fn to_proto(&self) -> orc_proto::ColumnStatistics {
+        let mut stat = orc_proto::ColumnStatistics::new();
+        match self {
+            Statistics::Long(long_statistics) => {
+                let mut int_stat = orc_proto::IntegerStatistics::new();
+                if let Some(x) = long_statistics.min { int_stat.set_minimum(x); }
+                if let Some(x) = long_statistics.max { int_stat.set_maximum(x); }
+                if let Some(x) = long_statistics.sum { int_stat.set_sum(x); }
+                stat.set_intStatistics(int_stat);
+                stat.set_numberOfValues(long_statistics.num_rows);
+                stat.set_hasNull(long_statistics.has_null);
+            }
+            _ => unimplemented!()
+        }
+        stat
     }
 }
 

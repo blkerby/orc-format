@@ -6,7 +6,7 @@ use protobuf::error::ProtobufResult;
 use super::protos::orc_proto;
 use super::schema::Schema;
 use stripe::{Stripe, StripeInfo};
-use statistics::{Statistics, LongStatistics, StructStatistics};
+use statistics::{Statistics, BaseStatistics, LongStatistics, StructStatistics};
 
 pub use data::{Data, BaseData, LongData, StructData};
 
@@ -74,6 +74,17 @@ impl<'a, W: Write> Writer<'a, W> {
         Ok(())
     }
 
+    fn merge_statistics(&self) -> Vec<Statistics> {
+        let mut statistics: Vec<Statistics> = Vec::new();
+        self.current_stripe.data.statistics(&mut statistics);  
+        for si in &self.stripe_infos {
+            for (i, stat) in si.statistics.iter().enumerate() {
+                statistics[i].merge(stat);
+            }
+        }
+        statistics
+    }
+
     fn write_metadata(&mut self) -> Result<u64> {
         let mut coded_out = CodedOutputStream::new(&mut self.inner);
         let mut metadata = orc_proto::Metadata::new();
@@ -82,26 +93,13 @@ impl<'a, W: Write> Writer<'a, W> {
             let mut stripe_stats = orc_proto::StripeStatistics::new();
             let mut col_stats: Vec<orc_proto::ColumnStatistics> = Vec::new();
             for info_stat in &stripe_info.statistics {
-                let mut stat = orc_proto::ColumnStatistics::new();
-                match info_stat {
-                    Statistics::Long(long_statistics) => {
-                        let mut int_stat = orc_proto::IntegerStatistics::new();
-                        if let Some(x) = long_statistics.min { int_stat.set_minimum(x); }
-                        if let Some(x) = long_statistics.max { int_stat.set_maximum(x); }
-                        if let Some(x) = long_statistics.sum { int_stat.set_sum(x); }
-                        stat.set_intStatistics(int_stat);
-                        stat.set_numberOfValues(long_statistics.num_rows);
-                        stat.set_hasNull(long_statistics.has_null);
-                    }
-                    _ => unimplemented!()
-                }
-                col_stats.push(stat);
+                col_stats.push(info_stat.to_proto());
             }
             stripe_stats.set_colStats(RepeatedField::from_vec(col_stats));
             stripe_statistics.push(stripe_stats);
         }
         metadata.set_stripeStats(RepeatedField::from_vec(stripe_statistics));
-        metadata.write_to(&mut coded_out);
+        metadata.write_to(&mut coded_out)?;
         coded_out.flush()?;
         Ok(metadata.compute_size() as u64)
     }
@@ -135,6 +133,10 @@ impl<'a, W: Write> Writer<'a, W> {
     }
 
     fn write_footer(&mut self, content_length: u64) -> Result<u64> {
+        // self.inner.flush();
+        // panic!("Ending early");  43
+
+        let stats: Vec<_> = self.merge_statistics().iter().map(|x| x.to_proto()).collect();
         let mut coded_out = CodedOutputStream::new(&mut self.inner);
         let mut footer = orc_proto::Footer::new();
         footer.set_headerLength(Self::HEADER_LENGTH);
@@ -146,7 +148,7 @@ impl<'a, W: Write> Writer<'a, W> {
             stripe.set_offset(stripe_info.offset);
             stripe.set_indexLength(stripe_info.index_length);
             stripe.set_dataLength(stripe_info.data_length);
-            stripe.set_footerLength(stripe_info.data_length);
+            stripe.set_footerLength(stripe_info.footer_length);
             stripe.set_numberOfRows(stripe_info.num_rows);
             stripes.push(stripe);
         }
@@ -158,7 +160,7 @@ impl<'a, W: Write> Writer<'a, W> {
 
         footer.set_metadata(RepeatedField::from_vec(vec![]));
         footer.set_numberOfRows(self.stripe_infos.iter().map(|x| x.num_rows).sum());
-        footer.set_statistics(RepeatedField::from_vec(vec![]));
+        footer.set_statistics(RepeatedField::from_vec(stats));
         footer.set_rowIndexStride(self.config.row_index_stride);
         
         footer.write_to(&mut coded_out)?;

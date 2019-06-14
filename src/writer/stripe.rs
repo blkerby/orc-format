@@ -68,13 +68,12 @@ impl<'a> Stripe<'a> {
     }
 
     pub fn finish<W: Write>(&mut self, out: &mut W, stripe_infos_out: &mut Vec<StripeInfo>) -> Result<()> {
-        // if self.num_rows == 0 { return Ok(None) }
+        if self.num_rows == 0 { return Ok(()) }
         let mut stream_infos: Vec<StreamInfo> = Vec::new();
         let mut statistics: Vec<Statistics> = Vec::new();
         self.data.statistics(&mut statistics);
         let index_length = self.data.write_index_streams(out, &mut stream_infos)?;
         let data_length = self.data.write_data_streams(out, &mut stream_infos)?;
-        // self.data.reset();
         let footer_length = self.write_footer(out, &stream_infos)?;
         stripe_infos_out.push(StripeInfo {
             offset: self.offset,
@@ -85,6 +84,8 @@ impl<'a> Stripe<'a> {
             statistics,
         });
         self.offset += index_length + data_length + footer_length;
+        self.num_rows = 0;
+        self.data.reset();
         Ok(())
     }
 }

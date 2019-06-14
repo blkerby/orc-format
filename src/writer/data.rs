@@ -14,6 +14,7 @@ pub trait BaseData<'a> {
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64>;
     fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>);
     fn statistics(&self, out: &mut Vec<Statistics>);
+    fn reset(&mut self);
 }
 
 pub struct LongData<'a> {
@@ -83,6 +84,10 @@ impl<'a> BaseData<'a> for LongData<'a> {
     fn statistics(&self, out: &mut Vec<Statistics>) {
         out.push(Statistics::Long(self.stats));
     }
+
+    fn reset(&mut self) {
+        self.stats = LongStatistics::new();
+    }
 }
 
 pub struct StructData<'a> {
@@ -131,7 +136,7 @@ impl<'a> BaseData<'a> for StructData<'a> {
     }
 
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
-        let mut present_len = self.present.finish(out)?;
+        let present_len = self.present.finish(out)?;
         stream_infos_out.push(StreamInfo {
             kind: orc_proto::Stream_Kind::PRESENT,
             column_id: self.column_id,
@@ -152,6 +157,13 @@ impl<'a> BaseData<'a> for StructData<'a> {
 
     fn statistics(&self, out: &mut Vec<Statistics>) {
         out.push(Statistics::Struct(self.stats));
+    }
+
+    fn reset(&mut self) {
+        self.stats = StructStatistics::new();
+        for child in &mut self.children {
+            child.reset();
+        }
     }
 }
 

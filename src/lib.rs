@@ -22,13 +22,12 @@ mod tests {
         let mut writer = Writer::new(&mut out, &schema, &config)?;
         let mut data = writer.data();
         if let Data::Long(data) = data {
-            data.write(Some(5));
+            for i in 0..10 {
+                data.write(Some(i));
+            }
         } else { unreachable!(); }
-        writer.write_batch(1);
+        writer.write_batch(10)?;
         writer.finish()?;
-        println!("{:?}", out);
-        assert!(false);
         Ok(())
-
     }
 }

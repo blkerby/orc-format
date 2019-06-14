@@ -151,7 +151,7 @@ impl VarInt for u64 {
 }
 
 impl VarInt for i64 {        
-    fn write_varint(mut self, out: &mut Buffer) {
+    fn write_varint(self, out: &mut Buffer) {
         let zigzag_encoding = (self << 1) ^ (self >> 63);
         (zigzag_encoding as u64).write_varint(out);
     }
@@ -181,7 +181,6 @@ impl<T: VarInt> IntRLEv1<T> {
     }
 
     pub fn write(&mut self, x: T) {
-        println!("buf len {}, run_len {}, delta {}", self.buf.len(), self.run_len, self.delta);
         let len = self.buf.len();
         if len == 128 || self.run_len == 130 {
             self.finish_group();
@@ -216,7 +215,6 @@ impl<T: VarInt> IntRLEv1<T> {
     }
 
     pub fn finish_group(&mut self) {
-        println!("finish_group: buf len {}, run_len {}, delta {}", self.buf.len(), self.run_len, self.delta);
         if self.run_len > 0 {
             self.sink.write_u8(self.run_len - 3);
             self.sink.write_u8(self.delta as u8);
@@ -274,7 +272,7 @@ mod tests {
             rle.write(x);
         }
         let mut out: Vec<u8> = Vec::new();
-        rle.finish(&mut out);
+        rle.finish(&mut out).unwrap();
         assert_eq!(out, expected_output);
     }
 
@@ -287,7 +285,7 @@ mod tests {
             rle.write(x);
         }
         let mut out: Vec<u8> = Vec::new();
-        rle.finish(&mut out);
+        rle.finish(&mut out).unwrap();
         assert_eq!(out, expected_output);
     }
 
@@ -328,7 +326,7 @@ mod tests {
             rle.write(x);
         }
         let mut out: Vec<u8> = Vec::new();
-        rle.finish(&mut out);
+        rle.finish(&mut out).unwrap();
         assert_eq!(out, expected_output);
     }
 
@@ -339,7 +337,7 @@ mod tests {
             rle.write(x);
         }
         let mut out: Vec<u8> = Vec::new();
-        rle.finish(&mut out);
+        rle.finish(&mut out).unwrap();
         assert_eq!(out, expected_output);
     }
 
