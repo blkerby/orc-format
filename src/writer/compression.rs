@@ -117,12 +117,16 @@ impl CompressionStream {
     }
 
     pub fn write_bytes(&mut self, bytes: &[u8]) {
-        if self.buf.len() + bytes.len() > self.buf.capacity() {
-            let i = self.buf.capacity() - self.buf.len();
-            self.buf.write_bytes(&bytes[..i]);
-            self.finish_block();
-            self.buf.resize(0);
-            self.buf.write_bytes(&bytes[i..]);
+        if let Some(compressor) = &mut self.compressor {        
+            if self.buf.len() + bytes.len() > self.buf.capacity() {
+                let i = self.buf.capacity() - self.buf.len();
+                self.buf.write_bytes(&bytes[..i]);
+                self.finish_block();
+                self.buf.resize(0);
+                self.buf.write_bytes(&bytes[i..]);
+            } else {
+                self.buf.write_bytes(bytes);
+            }
         } else {
             self.buf.write_bytes(bytes);
         }
