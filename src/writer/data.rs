@@ -1,13 +1,12 @@
 use std::io::{Write, Result};
-use enum_dispatch::enum_dispatch;
 
 use crate::protos::orc_proto;
 use crate::schema::{Schema, Field};
 use super::encoder::{BooleanRLE, SignedIntRLEv1, UnsignedIntRLEv1};
 use super::stripe::StreamInfo;
 use super::statistics::{Statistics, LongStatistics, StructStatistics};
+use super::compression::{Compression, CompressionStream};
 
-#[enum_dispatch]
 pub trait BaseData<'a> {
     fn column_id(&self) -> u32;
     fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64>;
@@ -26,14 +25,14 @@ pub struct LongData<'a> {
 }
 
 impl<'a> LongData<'a> {
-    pub(crate) fn new(schema: &'a Schema, column_id: &mut u32) -> Self {
+    pub(crate) fn new(schema: &'a Schema, column_id: &mut u32, compression: &Compression) -> Self {
         let cid = *column_id;
         *column_id += 1;
         LongData {
             column_id: cid,
             schema,
-            present: BooleanRLE::new(),
-            data: SignedIntRLEv1::new(),
+            present: BooleanRLE::new(compression),
+            data: SignedIntRLEv1::new(compression),
             stats: LongStatistics::new(),
         }
     }
@@ -99,18 +98,18 @@ pub struct StructData<'a> {
 }
 
 impl<'a> StructData<'a> {
-    pub(crate) fn new(fields: &'a [Field], column_id: &mut u32) -> Self {
+    pub(crate) fn new(fields: &'a [Field], column_id: &mut u32, compression: &Compression) -> Self {
         let cid = *column_id;
         let mut children: Vec<Data> = Vec::new();
         for field in fields {
             *column_id += 1;
-            children.push(Data::new(&field.schema, column_id));
+            children.push(Data::new(&field.schema, column_id, compression));
         }
 
         StructData {
             column_id: cid,
             fields,
-            present: BooleanRLE::new(),
+            present: BooleanRLE::new(compression),
             children: children,
             stats: StructStatistics::new(),
         }
@@ -168,17 +167,61 @@ impl<'a> BaseData<'a> for StructData<'a> {
 }
 
 
-#[enum_dispatch(BaseData)]
 pub enum Data<'a> {
     Long(LongData<'a>),
     Struct(StructData<'a>)
 }
 
 impl<'a> Data<'a> {
-    pub(crate) fn new(schema: &'a Schema, column_id: &mut u32) -> Self {
+    pub(crate) fn new(schema: &'a Schema, column_id: &mut u32, compression: &Compression) -> Self {
         match schema {
-            Schema::Short | Schema::Int | Schema::Long => Data::Long(LongData::new(schema, column_id)),
-            Schema::Struct(fields) => Data::Struct(StructData::new(fields, column_id)),
+            Schema::Short | Schema::Int | Schema::Long => Data::Long(LongData::new(schema, column_id, compression)),
+            Schema::Struct(fields) => Data::Struct(StructData::new(fields, column_id, compression)),
+        }
+    }
+}
+
+// We could use `enum_dispatch` to autogenerate this boilerplate, but unfortunately it doesn't work with RLS.
+impl<'a> BaseData<'a> for Data<'a> {
+    fn column_id(&self) -> u32 {
+        match self {
+            Data::Long(x) => x.column_id(),
+            Data::Struct(x) => x.column_id(),
+        }
+    }
+
+    fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
+        match self {
+            Data::Long(x) => x.write_index_streams(out, stream_infos_out),
+            Data::Struct(x) => x.write_index_streams(out, stream_infos_out),
+        }
+    }
+
+    fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
+        match self {
+            Data::Long(x) => x.write_data_streams(out, stream_infos_out),
+            Data::Struct(x) => x.write_data_streams(out, stream_infos_out),
+        }
+    }
+
+    fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>) {
+        match self {
+            Data::Long(x) => x.column_encodings(out),
+            Data::Struct(x) => x.column_encodings(out),
+        }
+    }
+
+    fn statistics(&self, out: &mut Vec<Statistics>) {
+        match self {
+            Data::Long(x) => x.statistics(out),
+            Data::Struct(x) => x.statistics(out),
+        }
+    }
+
+    fn reset(&mut self) {
+        match self {
+            Data::Long(x) => x.reset(),
+            Data::Struct(x) => x.reset(),
         }
     }
 }

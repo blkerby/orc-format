@@ -8,21 +8,26 @@ use super::schema::Schema;
 use stripe::{Stripe, StripeInfo};
 use statistics::{Statistics, BaseStatistics, LongStatistics, StructStatistics};
 
+pub use compression::{Compression, NoCompression};
 pub use data::{Data, BaseData, LongData, StructData};
 
+mod compression;
 mod encoder;
 mod data;
 mod statistics;
 mod stripe;
 
+
 pub struct Config {
     row_index_stride: u32,
+    compression: Compression,
 }
 
 impl Default for Config {
     fn default() -> Config {
         Config {
             row_index_stride: 0, //10000,
+            compression: NoCompression::new().build(),
         }
     }
 }
@@ -44,7 +49,7 @@ impl<'a, W: Write> Writer<'a, W> {
             inner,
             schema,
             config,
-            current_stripe: Stripe::new(schema),
+            current_stripe: Stripe::new(schema, &config.compression),
             stripe_infos: Vec::new(),
         };
         writer.write_header()?;

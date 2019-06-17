@@ -9,7 +9,5 @@ protoc-rust = "2.6.2"
 
 [dependencies]
 protobuf = "2.6.2"
-enum_dispatch = "0.1.3"
-
-[dev-dependencies]
-test-case-derive = "0.2.1"
+snap = "0.2.5"
+byteorder = "1.3.2"

@@ -6,6 +6,7 @@ use crate::schema::Schema;
 
 use super::data::{Data, BaseData};
 use super::statistics::Statistics;
+use super::compression::Compression;
 
 #[derive(Debug)]
 pub struct StripeInfo {
@@ -31,9 +32,9 @@ pub struct Stripe<'a> {
 }
 
 impl<'a> Stripe<'a> {
-    pub fn new(schema: &'a Schema) -> Self {
+    pub fn new(schema: &'a Schema, compression: &Compression) -> Self {
         Stripe {
-            data: Data::new(schema, &mut 0),
+            data: Data::new(schema, &mut 0, compression),
             offset: 3,
             num_rows: 0,
         }
