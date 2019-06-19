@@ -117,6 +117,7 @@ impl CompressionStream {
         }
     }
 
+    #[inline(always)]
     pub fn write_u8(&mut self, b: u8) {
         if self.buf.len() >= self.buf.capacity() {
             self.finish_block();
@@ -126,6 +127,7 @@ impl CompressionStream {
         }
     }
 
+    #[inline(always)]
     pub fn write_bytes(&mut self, bytes: &[u8]) {
         if let Some(_) = &mut self.compressor {
             if self.buf.len() + bytes.len() > self.buf.capacity() {

@@ -111,11 +111,15 @@ trait VarInt: Copy + Default {
 impl VarInt for u64 {
     #[inline(always)]
     fn write_varint(mut self, out: &mut CompressionStream) {
-        while self >= 0x80 {
-            out.write_u8((0x80 | (self & 0x7f)) as u8);
+        let mut buf = [0; 10];
+        let mut len: usize = 0;
+
+        for i in 0..10 {
+            if self < 0x80 { buf[i] = self as u8; len = i + 1; break }
+            buf[i] = 0x80 | (self as u8);
             self >>= 7;
         }
-        out.write_u8(self as u8);
+        out.write_bytes(&buf[..len]);
     }
 
     #[inline(always)]
