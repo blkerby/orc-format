@@ -7,7 +7,7 @@ use crate::schema::Schema;
 use super::Config;
 use super::data::{Data, BaseData};
 use super::statistics::Statistics;
-use super::compression::{Compression, CompressionStream};
+use super::compression::{CompressionStream};
 
 #[derive(Debug)]
 pub struct StripeInfo {
