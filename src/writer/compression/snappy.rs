@@ -1,6 +1,7 @@
 use snap;
 use super::{CompressionImpl, Compression, Compressor, MAX_BLOCK_SIZE};
 use crate::buffer::Buffer;
+use crate::protos::orc_proto;
 
 pub struct SnappyCompression { 
     block_size: usize,
@@ -25,6 +26,10 @@ impl SnappyCompression {
 }
 
 impl CompressionImpl for SnappyCompression {
+    fn kind(&self) -> orc_proto::CompressionKind {
+        orc_proto::CompressionKind::SNAPPY
+    }
+
     fn block_size(&self) -> usize {
         self.block_size
     }

@@ -1,0 +1,13 @@
+Header: 3 bytes "ORC"
+Stripe 0:
+  Stream 0: Compressed stream, encoded as specified in stripe footer (e.g., Boolean RLE)
+  Stream 1: Compressed stream, encoded as specified in stripe footer (e.g., Boolean RLE)
+  ...
+  Stripe footer: Compressed stream, Protobuf-encoded (StripeFooter)
+Stripe 1:
+  ...
+...
+File metadata: Compressed stream, Protobuf-encoded (Metadata)
+File footer: Compressed stream, Protobuf-encoded (Footer)
+Postscript: Uncompressed stream, Protobuf-encoded (PostScript)
+Postscript length: single byte, representing length of the Postscript in bytes (0-255)

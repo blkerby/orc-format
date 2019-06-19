@@ -1,15 +1,17 @@
+use crate::protos::orc_proto;
+use std::io::{Result, Write};
 use byteorder::{LittleEndian, WriteBytesExt};
-use std::io::{Read, Result, Write};
-use std::mem;
+
 
 
 use crate::buffer::Buffer;
 
-mod snappy;
+pub mod snappy;
 
 const MAX_BLOCK_SIZE: usize = 0x7fffff;
 
 trait CompressionImpl {
+    fn kind(&self) -> orc_proto::CompressionKind;
     fn block_size(&self) -> usize;
     fn compressor(&self) -> Option<Box<dyn Compressor>>;
 }
@@ -17,7 +19,11 @@ trait CompressionImpl {
 pub struct Compression(Box<dyn CompressionImpl>);
 
 impl Compression {
-    fn block_size(&self) -> usize {
+    pub(crate) fn kind(&self) -> orc_proto::CompressionKind {
+        self.0.kind()
+    }
+
+    pub(crate) fn block_size(&self) -> usize {
         self.0.block_size()
     }
 
@@ -48,6 +54,10 @@ impl NoCompression {
 }
 
 impl CompressionImpl for NoCompression {
+    fn kind(&self) -> orc_proto::CompressionKind {
+        orc_proto::CompressionKind::NONE
+    }
+
     fn block_size(&self) -> usize {
         0
     }
@@ -72,7 +82,7 @@ pub struct CompressionStream {
 impl CompressionStream {
     pub fn new(compression: &Compression) -> Self {
         CompressionStream {
-            compressor: compression.0.compressor(),
+            compressor: compression.compressor(),
             buf: Buffer::with_capacity(compression.block_size()),
             output: Buffer::new(),
             output_block_info: Vec::new(),
@@ -117,7 +127,7 @@ impl CompressionStream {
     }
 
     pub fn write_bytes(&mut self, bytes: &[u8]) {
-        if let Some(compressor) = &mut self.compressor {        
+        if let Some(_) = &mut self.compressor {
             if self.buf.len() + bytes.len() > self.buf.capacity() {
                 let i = self.buf.capacity() - self.buf.len();
                 self.buf.write_bytes(&bytes[..i]);
@@ -133,20 +143,36 @@ impl CompressionStream {
     }
 
     pub fn finish<W: Write>(&mut self, out: &mut W) -> Result<u64> {
-        if let Some(compressor) = &self.compressor {
+        if let Some(_) = &self.compressor {
+            self.finish_block();
             let mut i = 0;
+            let mut size = 0;
             for info in &self.output_block_info {
                 let header = info.length * 2 + (info.is_original as usize);
                 out.write_u24::<LittleEndian>(header as u32)?;
                 out.write_all(&self.output[i..(i + info.length)])?;
                 i += info.length;
+                size += info.length + 3;
             }
-            Ok(i as u64)
+            println!("Compressed size: {}", size);
+            Ok(size as u64)
         } else {
+            println!("Uncompressed buf len: {}", self.buf.len());
             out.write_all(&self.buf)?;
             let len = self.buf.len();
             self.buf.resize(0);
             Ok(len as u64)
         }
+    }
+}
+
+impl Write for CompressionStream {
+    fn write(&mut self, bytes: &[u8]) -> Result<usize> {
+        self.write_bytes(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        Ok(())
     }
 }

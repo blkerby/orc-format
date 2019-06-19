@@ -6,7 +6,7 @@ use crate::schema::Schema;
 
 use super::data::{Data, BaseData};
 use super::statistics::Statistics;
-use super::compression::Compression;
+use super::compression::{Compression, CompressionStream};
 
 #[derive(Debug)]
 pub struct StripeInfo {
@@ -29,24 +29,28 @@ pub struct Stripe<'a> {
     pub data: Data<'a>,
     pub offset: u64,
     pub num_rows: u64,
+    pub compression: &'a Compression,
 }
 
 impl<'a> Stripe<'a> {
-    pub fn new(schema: &'a Schema, compression: &Compression) -> Self {
+    pub fn new(schema: &'a Schema, compression: &'a Compression) -> Self {
         Stripe {
             data: Data::new(schema, &mut 0, compression),
             offset: 3,
             num_rows: 0,
+            compression,
         }
     }
 
     pub fn write_batch(&mut self, num_rows: u64) -> Result<()> {
         self.num_rows += num_rows;
+        self.data.verify_row_count(self.num_rows, num_rows);
         Ok(())
     }
 
     fn write_footer<W: Write>(&mut self, out: &mut W, stream_infos: &[StreamInfo]) -> Result<u64> {
-        let mut coded_out = CodedOutputStream::new(out);
+        let mut compressed_stream = CompressionStream::new(&self.compression);
+        let mut coded_out = CodedOutputStream::new(&mut compressed_stream);
         let mut footer = orc_proto::StripeFooter::new();
         
         let mut streams: Vec<orc_proto::Stream> = Vec::new();
@@ -65,7 +69,8 @@ impl<'a> Stripe<'a> {
 
         footer.write_to(&mut coded_out)?;
         coded_out.flush()?;
-        Ok(footer.compute_size() as u64)
+        let size = compressed_stream.finish(out)?;
+        Ok(size as u64)
     }
 
     pub fn finish<W: Write>(&mut self, out: &mut W, stripe_infos_out: &mut Vec<StripeInfo>) -> Result<()> {

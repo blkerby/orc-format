@@ -13,6 +13,7 @@ pub trait BaseData<'a> {
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64>;
     fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>);
     fn statistics(&self, out: &mut Vec<Statistics>);
+    fn verify_row_count(&self, num_rows: u64, batch_size: u64);
     fn reset(&mut self);
 }
 
@@ -69,7 +70,7 @@ impl<'a> BaseData<'a> for LongData<'a> {
         stream_infos_out.push(StreamInfo {
             kind: orc_proto::Stream_Kind::DATA,
             column_id: self.column_id,
-            length: present_len as u64,
+            length: data_len as u64,
         });
         Ok(present_len + data_len)
     }
@@ -82,6 +83,14 @@ impl<'a> BaseData<'a> for LongData<'a> {
 
     fn statistics(&self, out: &mut Vec<Statistics>) {
         out.push(Statistics::Long(self.stats));
+    }
+
+    fn verify_row_count(&self, row_count: u64, batch_size: u64) {
+        if self.stats.num_rows != row_count {
+            let prior_num_rows = row_count - batch_size;
+            panic!("In column {}, the number of values written ({}) does not match the batch size ({})", 
+                self.column_id, self.stats.num_rows - prior_num_rows, batch_size);
+        }
     }
 
     fn reset(&mut self) {
@@ -158,6 +167,12 @@ impl<'a> BaseData<'a> for StructData<'a> {
         out.push(Statistics::Struct(self.stats));
     }
 
+    fn verify_row_count(&self, row_count: u64, batch_size: u64) {
+        for child in &self.children {
+            child.verify_row_count(row_count, batch_size);
+        }
+    }
+
     fn reset(&mut self) {
         self.stats = StructStatistics::new();
         for child in &mut self.children {
@@ -215,6 +230,13 @@ impl<'a> BaseData<'a> for Data<'a> {
         match self {
             Data::Long(x) => x.statistics(out),
             Data::Struct(x) => x.statistics(out),
+        }
+    }
+
+    fn verify_row_count(&self, row_count: u64, batch_size: u64) {
+        match self {
+            Data::Long(x) => x.verify_row_count(row_count, batch_size),
+            Data::Struct(x) => x.verify_row_count(row_count, batch_size),
         }
     }
 

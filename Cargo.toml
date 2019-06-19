@@ -1,5 +1,5 @@
 [package]
-name = "orc"
+name = "orc-rs"
 version = "0.1.0"
 authors = ["Brent Kerby <blkerby@gmail.com>"]
 edition = "2018"

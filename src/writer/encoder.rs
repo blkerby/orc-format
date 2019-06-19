@@ -1,6 +1,4 @@
 use super::compression::{Compression, CompressionStream};
-use std::iter;
-use std::slice;
 use std::io::{Write, Result};
 
 
@@ -21,6 +19,7 @@ impl ByteRLE {
         }
     }
 
+    #[inline(always)]
     pub fn write(&mut self, x: u8) {
         if self.buf_len == 128 || self.run_len == 130 {
             self.finish_group();
@@ -50,6 +49,7 @@ impl ByteRLE {
         }
     }
 
+    #[inline(always)]
     fn finish_group(&mut self) {
         if self.run_len > 0 {
             self.sink.write_u8((self.run_len - 3) as u8);
@@ -84,6 +84,7 @@ impl BooleanRLE {
         }
     }
 
+    #[inline(always)]
     pub fn write(&mut self, x: bool) {
         self.buf = self.buf << 1 | (x as u8);
         if self.cnt == 7 {
@@ -108,6 +109,7 @@ trait VarInt: Copy + Default {
 }
 
 impl VarInt for u64 {
+    #[inline(always)]
     fn write_varint(mut self, out: &mut CompressionStream) {
         while self >= 0x80 {
             out.write_u8((0x80 | (self & 0x7f)) as u8);
@@ -116,17 +118,20 @@ impl VarInt for u64 {
         out.write_u8(self as u8);
     }
 
+    #[inline(always)]
     fn wrapping_sub_i64(self, rhs: Self) -> i64 {
         self.wrapping_sub(rhs) as i64
     }
 }
 
 impl VarInt for i64 {
+    #[inline(always)]
     fn write_varint(self, out: &mut CompressionStream) {
         let zigzag_encoding = (self << 1) ^ (self >> 63);
         (zigzag_encoding as u64).write_varint(out);
     }
 
+    #[inline(always)]
     fn wrapping_sub_i64(self, rhs: Self) -> i64 {
         self.wrapping_sub(rhs)
     }
@@ -151,6 +156,7 @@ impl<T: VarInt> IntRLEv1<T> {
         }
     }
 
+    #[inline(always)]
     pub fn write(&mut self, x: T) {
         let len = self.buf.len();
         if len == 128 || self.run_len == 130 {
@@ -213,9 +219,12 @@ impl SignedIntRLEv1 {
     pub fn new(compression: &Compression) -> Self {
         SignedIntRLEv1(IntRLEv1::new(compression))
     }
+
+    #[inline(always)]
     pub fn write(&mut self, x: i64) {
         self.0.write(x);
     }
+
     pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> {
         self.0.finish(w)
     }
@@ -227,9 +236,12 @@ impl UnsignedIntRLEv1 {
     pub fn new(compression: &Compression) -> Self {
         UnsignedIntRLEv1(IntRLEv1::new(compression))
     }
+
+    #[inline(always)]
     pub fn write(&mut self, x: u64) {
         self.0.write(x);
     }
+
     pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> {
         self.0.finish(w)
     }
@@ -237,7 +249,7 @@ impl UnsignedIntRLEv1 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
     // use test_case_derive::test_case;
 
     // #[test_case(vec![], vec![] :: "empty")]

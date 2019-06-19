@@ -1,21 +1,21 @@
-use std::io::{Write, Result};
-use std::slice;
-use protobuf::{RepeatedField, CodedOutputStream, Message};
-use protobuf::error::ProtobufResult;
-
 use super::protos::orc_proto;
 use super::schema::Schema;
-use stripe::{Stripe, StripeInfo};
-use statistics::{Statistics, BaseStatistics, LongStatistics, StructStatistics};
+use protobuf::{CodedOutputStream, Message, RepeatedField};
+use std::io::{Result, Write};
+use std::slice;
 
-pub use compression::{Compression, NoCompression};
+use statistics::{BaseStatistics, Statistics};
+use stripe::{Stripe, StripeInfo};
+
 pub use data::{Data, BaseData, LongData, StructData};
+pub use compression::snappy::SnappyCompression;
+pub use compression::{Compression, CompressionStream, NoCompression};
 
 mod compression;
-mod encoder;
-mod data;
-mod statistics;
 mod stripe;
+mod data;
+mod encoder;
+mod statistics;
 
 
 pub struct Config {
@@ -23,12 +23,22 @@ pub struct Config {
     compression: Compression,
 }
 
-impl Default for Config {
-    fn default() -> Config {
+impl Config {
+    pub fn new() -> Config {
         Config {
             row_index_stride: 0, //10000,
             compression: NoCompression::new().build(),
         }
+    }
+
+    pub fn with_row_index_stride(mut self, row_index_stride: u32) -> Self {
+        self.row_index_stride = row_index_stride;
+        self
+    }
+
+    pub fn with_compression(mut self, compression: Compression) -> Self {
+        self.compression = compression;
+        self
     }
 }
 
@@ -45,7 +55,7 @@ impl<'a, W: Write> Writer<'a, W> {
     const HEADER_LENGTH: u64 = 3;
 
     pub fn new(inner: W, schema: &'a Schema, config: &'a Config) -> Result<Writer<'a, W>> {
-        let mut writer = Writer { 
+        let mut writer = Writer {
             inner,
             schema,
             config,
@@ -65,12 +75,14 @@ impl<'a, W: Write> Writer<'a, W> {
         Ok(())
     }
 
-    pub fn finish(mut self) -> Result<()>{
-        self.current_stripe.finish(&mut self.inner, &mut self.stripe_infos)?;
+    pub fn finish(mut self) -> Result<()> {
+        self.current_stripe
+            .finish(&mut self.inner, &mut self.stripe_infos)?;
         let content_length = self.current_stripe.offset - Self::HEADER_LENGTH;
         let metadata_length = self.write_metadata()?;
         let footer_length = self.write_footer(content_length)?;
         self.write_postscript(metadata_length, footer_length)?;
+        self.inner.flush()?;
         Ok(())
     }
 
@@ -81,7 +93,7 @@ impl<'a, W: Write> Writer<'a, W> {
 
     fn merge_statistics(&self) -> Vec<Statistics> {
         let mut statistics: Vec<Statistics> = Vec::new();
-        self.current_stripe.data.statistics(&mut statistics);  
+        self.current_stripe.data.statistics(&mut statistics);
         for si in &self.stripe_infos {
             for (i, stat) in si.statistics.iter().enumerate() {
                 statistics[i].merge(stat);
@@ -91,7 +103,8 @@ impl<'a, W: Write> Writer<'a, W> {
     }
 
     fn write_metadata(&mut self) -> Result<u64> {
-        let mut coded_out = CodedOutputStream::new(&mut self.inner);
+        let mut compression_stream = CompressionStream::new(&self.config.compression);
+        let mut coded_out = CodedOutputStream::new(&mut compression_stream);
         let mut metadata = orc_proto::Metadata::new();
         let mut stripe_statistics: Vec<orc_proto::StripeStatistics> = Vec::new();
         for stripe_info in &self.stripe_infos {
@@ -106,7 +119,8 @@ impl<'a, W: Write> Writer<'a, W> {
         metadata.set_stripeStats(RepeatedField::from_vec(stripe_statistics));
         metadata.write_to(&mut coded_out)?;
         coded_out.flush()?;
-        Ok(metadata.compute_size() as u64)
+        let size = compression_stream.finish(&mut self.inner)?;
+        Ok(size as u64)
     }
 
     fn make_types(data: &Data<'a>, types: &mut Vec<orc_proto::Type>) {
@@ -117,7 +131,7 @@ impl<'a, W: Write> Writer<'a, W> {
                     Schema::Short => orc_proto::Type_Kind::SHORT,
                     Schema::Int => orc_proto::Type_Kind::INT,
                     Schema::Long => orc_proto::Type_Kind::LONG,
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 });
                 types.push(t);
             }
@@ -132,21 +146,22 @@ impl<'a, W: Write> Writer<'a, W> {
                 for d in &struct_data.children {
                     Self::make_types(d, types);
                 }
-                // t.subtypes
             }
         }
     }
 
     fn write_footer(&mut self, content_length: u64) -> Result<u64> {
-        // self.inner.flush();
-        // panic!("Ending early");  43
-
-        let stats: Vec<_> = self.merge_statistics().iter().map(|x| x.to_proto()).collect();
-        let mut coded_out = CodedOutputStream::new(&mut self.inner);
+        let mut compression_stream = CompressionStream::new(&self.config.compression);
+        let stats: Vec<_> = self
+            .merge_statistics()
+            .iter()
+            .map(|x| x.to_proto())
+            .collect();
+        let mut coded_out = CodedOutputStream::new(&mut compression_stream);
         let mut footer = orc_proto::Footer::new();
         footer.set_headerLength(Self::HEADER_LENGTH);
         footer.set_contentLength(content_length);
-        
+
         let mut stripes: Vec<orc_proto::StripeInformation> = Vec::new();
         for stripe_info in &self.stripe_infos {
             let mut stripe = orc_proto::StripeInformation::new();
@@ -158,7 +173,7 @@ impl<'a, W: Write> Writer<'a, W> {
             stripes.push(stripe);
         }
         footer.set_stripes(RepeatedField::from_vec(stripes));
-        
+
         let mut types: Vec<orc_proto::Type> = Vec::new();
         Self::make_types(&self.current_stripe.data, &mut types);
         footer.set_types(RepeatedField::from_vec(types));
@@ -167,18 +182,19 @@ impl<'a, W: Write> Writer<'a, W> {
         footer.set_numberOfRows(self.stripe_infos.iter().map(|x| x.num_rows).sum());
         footer.set_statistics(RepeatedField::from_vec(stats));
         footer.set_rowIndexStride(self.config.row_index_stride);
-        
+
         footer.write_to(&mut coded_out)?;
         coded_out.flush()?;
-        Ok(footer.compute_size() as u64)
+        let size = compression_stream.finish(&mut self.inner)?;
+        Ok(size as u64)
     }
 
     fn write_postscript(&mut self, metadata_length: u64, footer_length: u64) -> Result<()> {
         let mut coded_out = CodedOutputStream::new(&mut self.inner);
         let mut postscript = orc_proto::PostScript::new();
-        postscript.set_compression(orc_proto::CompressionKind::NONE);
-        postscript.set_compressionBlockSize(0);
-        postscript.set_writerVersion(1);
+        postscript.set_compression(self.config.compression.kind());
+        postscript.set_compressionBlockSize(self.config.compression.block_size() as u64);
+        postscript.set_writerVersion(6);
         postscript.set_metadataLength(metadata_length);
         postscript.set_footerLength(footer_length);
         postscript.set_version(vec![0, 12]);
