@@ -151,7 +151,14 @@ impl<'a, W: Write> Writer<'a, W> {
                 for d in &struct_data.children {
                     subtypes.push(d.column_id());
                 }
+
+                let mut field_names: Vec<String> = Vec::new();
+                for f in struct_data.fields {
+                    field_names.push(f.0.to_owned());
+                }
+
                 t.set_subtypes(subtypes);
+                t.set_fieldNames(RepeatedField::from_vec(field_names));
                 types.push(t);
                 for d in &struct_data.children {
                     Self::make_types(d, types);
