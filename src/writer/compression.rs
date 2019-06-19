@@ -69,12 +69,14 @@ impl CompressionImpl for NoCompression {
 
 struct BlockInfo {
     is_original: bool,
+    offset: usize,
     length: usize,
 }
 
 pub struct CompressionStream {
     compressor: Option<Box<dyn Compressor>>,
     buf: Buffer,
+    buf_pos: usize,
     output: Buffer,
     output_block_info: Vec<BlockInfo>,
 }
@@ -84,6 +86,7 @@ impl CompressionStream {
         CompressionStream {
             compressor: compression.compressor(),
             buf: Buffer::with_capacity(compression.block_size()),
+            buf_pos: 0,
             output: Buffer::new(),
             output_block_info: Vec::new(),
         }
@@ -95,25 +98,27 @@ impl CompressionStream {
         }
         if let Some(compressor) = &mut self.compressor {
             let i = self.output.len();
-            compressor.compress(&self.buf, &mut self.output);
+            compressor.compress(&self.buf[self.buf_pos..], &mut self.output);
             let len = self.output.len() - i;
-            if len > self.buf.len() {
+            let buf_len = self.buf.len() - self.buf_pos;
+            if len > buf_len {
                 // Compression was unsuccessful, in that the compressed output was larger than
                 // the input. In this case, the ORC spec requires that we instead store the
-                // original uncompressed data. With a little fancier bookkeeping, we could
-                // avoid copying here and just keep the data where it already is (in self.buf).
-                self.output[i..(i + self.buf.len())].copy_from_slice(&self.buf);
+                // original uncompressed data. 
                 self.output_block_info.push(BlockInfo {
                     is_original: true,
-                    length: self.buf.len(),
+                    offset: self.buf_pos,
+                    length: buf_len,
                 });
+                self.buf_pos += buf_len;
             } else {
                 self.output_block_info.push(BlockInfo {
                     is_original: false,
+                    offset: i,
                     length: len,
                 });
+                self.buf.resize(self.buf_pos);
             }
-            self.buf.resize(0);
         }
     }
 
@@ -147,13 +152,15 @@ impl CompressionStream {
     pub fn finish<W: Write>(&mut self, out: &mut W) -> Result<u64> {
         if let Some(_) = &self.compressor {
             self.finish_block();
-            let mut i = 0;
             let mut size = 0;
             for info in &self.output_block_info {
                 let header = info.length * 2 + (info.is_original as usize);
                 out.write_u24::<LittleEndian>(header as u32)?;
-                out.write_all(&self.output[i..(i + info.length)])?;
-                i += info.length;
+                if info.is_original {
+                    out.write_all(&self.buf[info.offset..(info.offset + info.length)])?;                    
+                } else {
+                    out.write_all(&self.output[info.offset..(info.offset + info.length)])?;
+                }
                 size += info.length + 3;
             }
             println!("Compressed size: {}", size);
