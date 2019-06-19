@@ -9,7 +9,7 @@ fn main() -> Result<()> {
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
     let mut out = File::create("target/test.orc")?;
-    let config = Config::new().with_row_index_stride(0);//.with_compression(SnappyCompression::new().build());
+    let config = Config::new().with_row_index_stride(0).with_compression(SnappyCompression::new().build());
     let mut writer = Writer::new(&mut out, &schema, &config)?;
     let mut i: i64 = 0;
     let batch_size: i64 = 10;

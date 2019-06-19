@@ -194,12 +194,17 @@ impl<'a> BaseData<'a> for StructData<'a> {
     }
 
     fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>) {
+        assert_eq!(out.len(), self.column_id as usize);
         let mut encoding = orc_proto::ColumnEncoding::new();
         encoding.set_kind(orc_proto::ColumnEncoding_Kind::DIRECT);
         out.push(encoding);
+        for child in &self.children {
+            child.column_encodings(out);
+        }
     }
 
     fn statistics(&self, out: &mut Vec<Statistics>) {
+        assert_eq!(out.len(), self.column_id as usize);
         out.push(Statistics::Struct(self.splice_stats));
         for child in &self.children {
             child.statistics(out);

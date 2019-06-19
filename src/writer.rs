@@ -52,7 +52,6 @@ impl Config {
 #[must_use]
 pub struct Writer<'a, W: Write> {
     inner: W,
-    schema: &'a Schema,
     config: &'a Config,
     current_stripe: Stripe<'a>,
     stripe_infos: Vec<StripeInfo>,
@@ -64,7 +63,6 @@ impl<'a, W: Write> Writer<'a, W> {
     pub fn new(inner: W, schema: &'a Schema, config: &'a Config) -> Result<Writer<'a, W>> {
         let mut writer = Writer {
             inner,
-            schema,
             config,
             current_stripe: Stripe::new(&schema, &config),
             stripe_infos: Vec::new(),
