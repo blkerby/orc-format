@@ -67,6 +67,10 @@ impl ByteRLE {
         self.finish_group();
         self.sink.finish(w)
     }
+
+    pub fn estimated_size(&self) -> usize {
+        self.sink.estimated_size()
+    }
 }
 
 pub struct BooleanRLE {
@@ -100,6 +104,10 @@ impl BooleanRLE {
             self.byte_rle.write(self.buf << (8 - self.cnt));
         }
         self.byte_rle.finish(out)
+    }
+
+    pub fn estimated_size(&self) -> usize {
+        self.byte_rle.estimated_size()
     }
 }
 
@@ -215,6 +223,10 @@ impl<T: VarInt> IntRLEv1<T> {
         self.finish_group();
         self.sink.finish(w)
     }
+
+    pub fn estimated_size(&self) -> usize {
+        self.sink.estimated_size()
+    }
 }
 
 pub struct SignedIntRLEv1(IntRLEv1<i64>);
@@ -232,6 +244,10 @@ impl SignedIntRLEv1 {
     pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> {
         self.0.finish(w)
     }
+
+    pub fn estimated_size(&self) -> usize {
+        self.0.estimated_size()
+    }
 }
 
 pub struct UnsignedIntRLEv1(IntRLEv1<u64>);
@@ -248,6 +264,10 @@ impl UnsignedIntRLEv1 {
 
     pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> {
         self.0.finish(w)
+    }
+
+    pub fn estimated_size(&self) -> usize {
+        self.0.estimated_size()
     }
 }
 

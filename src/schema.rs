@@ -1,7 +1,4 @@
-pub struct Field {
-    pub name: String,
-    pub schema: Schema
-}
+pub struct Field(pub String, pub Schema);
 
 pub enum Schema {
     Short,

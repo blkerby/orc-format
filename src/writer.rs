@@ -21,13 +21,15 @@ mod statistics;
 pub struct Config {
     row_index_stride: u32,
     compression: Compression,
+    stripe_size: usize,
 }
 
 impl Config {
     pub fn new() -> Config {
         Config {
-            row_index_stride: 0, //10000,
+            row_index_stride: 10000,
             compression: NoCompression::new().build(),
+            stripe_size: 67108864,
         }
     }
 
@@ -38,6 +40,11 @@ impl Config {
 
     pub fn with_compression(mut self, compression: Compression) -> Self {
         self.compression = compression;
+        self
+    }
+
+    pub fn with_stripe_size(mut self, stripe_size: usize) -> Self {
+        self.stripe_size = stripe_size;
         self
     }
 }
@@ -59,7 +66,7 @@ impl<'a, W: Write> Writer<'a, W> {
             inner,
             schema,
             config,
-            current_stripe: Stripe::new(schema, &config.compression),
+            current_stripe: Stripe::new(&schema, &config),
             stripe_infos: Vec::new(),
         };
         writer.write_header()?;
@@ -72,6 +79,9 @@ impl<'a, W: Write> Writer<'a, W> {
 
     pub fn write_batch(&mut self, num_rows: u64) -> Result<()> {
         self.current_stripe.write_batch(num_rows)?;
+        if self.current_stripe.data.estimated_size() > self.config.stripe_size {
+            self.current_stripe.finish(&mut self.inner, &mut self.stripe_infos)?;
+        }
         Ok(())
     }
 

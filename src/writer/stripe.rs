@@ -4,6 +4,7 @@ use protobuf::{CodedOutputStream, RepeatedField, Message};
 use crate::protos::orc_proto;
 use crate::schema::Schema;
 
+use super::Config;
 use super::data::{Data, BaseData};
 use super::statistics::Statistics;
 use super::compression::{Compression, CompressionStream};
@@ -26,19 +27,19 @@ pub struct StreamInfo {
 }
 
 pub struct Stripe<'a> {
+    pub config: &'a Config,
     pub data: Data<'a>,
     pub offset: u64,
     pub num_rows: u64,
-    pub compression: &'a Compression,
 }
 
 impl<'a> Stripe<'a> {
-    pub fn new(schema: &'a Schema, compression: &'a Compression) -> Self {
+    pub fn new(schema: &'a Schema, config: &'a Config) -> Self {
         Stripe {
-            data: Data::new(schema, &mut 0, compression),
+            config,
+            data: Data::new(schema, config, &mut 0),
             offset: 3,
             num_rows: 0,
-            compression,
         }
     }
 
@@ -49,7 +50,7 @@ impl<'a> Stripe<'a> {
     }
 
     fn write_footer<W: Write>(&mut self, out: &mut W, stream_infos: &[StreamInfo]) -> Result<u64> {
-        let mut compressed_stream = CompressionStream::new(&self.compression);
+        let mut compressed_stream = CompressionStream::new(&self.config.compression);
         let mut coded_out = CodedOutputStream::new(&mut compressed_stream);
         let mut footer = orc_proto::StripeFooter::new();
         

@@ -2,9 +2,10 @@ use std::io::{Write, Result};
 
 use crate::protos::orc_proto;
 use crate::schema::{Schema, Field};
+use super::Config;
 use super::encoder::{BooleanRLE, SignedIntRLEv1, UnsignedIntRLEv1};
 use super::stripe::StreamInfo;
-use super::statistics::{Statistics, LongStatistics, StructStatistics};
+use super::statistics::{Statistics, BaseStatistics, LongStatistics, StructStatistics};
 use super::compression::{Compression, CompressionStream};
 
 pub trait BaseData<'a> {
@@ -14,27 +15,34 @@ pub trait BaseData<'a> {
     fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>);
     fn statistics(&self, out: &mut Vec<Statistics>);
     fn verify_row_count(&self, num_rows: u64, batch_size: u64);
+    fn estimated_size(&self) -> usize;
     fn reset(&mut self);
 }
 
 pub struct LongData<'a> {
     pub(crate) column_id: u32,
+    pub(crate) config: &'a Config,
     pub(crate) schema: &'a Schema,
     present: BooleanRLE,
     data: SignedIntRLEv1,
-    stats: LongStatistics,
+    current_row_group_stats: LongStatistics,
+    row_group_stats: Vec<LongStatistics>,
+    splice_stats: LongStatistics,
 }
 
 impl<'a> LongData<'a> {
-    pub(crate) fn new(schema: &'a Schema, column_id: &mut u32, compression: &Compression) -> Self {
+    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
         LongData {
             column_id: cid,
+            config,
             schema,
-            present: BooleanRLE::new(compression),
-            data: SignedIntRLEv1::new(compression),
-            stats: LongStatistics::new(),
+            present: BooleanRLE::new(&config.compression),
+            data: SignedIntRLEv1::new(&config.compression),
+            current_row_group_stats: LongStatistics::new(),
+            row_group_stats: vec![],
+            splice_stats: LongStatistics::new(),
         }
     }
 
@@ -48,7 +56,12 @@ impl<'a> LongData<'a> {
                 self.present.write(false); 
             }
         }
-        self.stats.update(x);
+        self.current_row_group_stats.update(x);
+        if self.current_row_group_stats.num_rows >= self.config.row_index_stride as u64 {
+            self.splice_stats.merge(&self.current_row_group_stats);
+            self.row_group_stats.push(self.current_row_group_stats);
+            self.current_row_group_stats = LongStatistics::new();
+        }
     }
 }
 
@@ -60,19 +73,24 @@ impl<'a> BaseData<'a> for LongData<'a> {
     }
 
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
-        let present_len = self.present.finish(out)?;
-        stream_infos_out.push(StreamInfo {
-            kind: orc_proto::Stream_Kind::PRESENT,
-            column_id: self.column_id,
-            length: present_len as u64,
-        });
+        let mut total_len = 0;
+        if self.splice_stats.has_null {
+            let present_len = self.present.finish(out)?;
+            stream_infos_out.push(StreamInfo {
+                kind: orc_proto::Stream_Kind::PRESENT,
+                column_id: self.column_id,
+                length: present_len as u64,
+            });
+            total_len += present_len;
+        }
         let data_len = self.data.finish(out)?;
         stream_infos_out.push(StreamInfo {
             kind: orc_proto::Stream_Kind::DATA,
             column_id: self.column_id,
             length: data_len as u64,
         });
-        Ok(present_len + data_len)
+        total_len += data_len;
+        Ok(total_len)
     }
 
     fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>) {
@@ -82,45 +100,58 @@ impl<'a> BaseData<'a> for LongData<'a> {
     }
 
     fn statistics(&self, out: &mut Vec<Statistics>) {
-        out.push(Statistics::Long(self.stats));
+        out.push(Statistics::Long(self.splice_stats));
+    }
+
+    fn estimated_size(&self) -> usize {
+        self.present.estimated_size() + self.data.estimated_size()
     }
 
     fn verify_row_count(&self, row_count: u64, batch_size: u64) {
-        if self.stats.num_rows != row_count {
+        let rows_written = self.splice_stats.num_rows + self.current_row_group_stats.num_rows;
+        if rows_written != row_count {
             let prior_num_rows = row_count - batch_size;
-            panic!("In column {}, the number of values written ({}) does not match the batch size ({})", 
-                self.column_id, self.stats.num_rows - prior_num_rows, batch_size);
+            panic!("In Long column {}, the number of values written ({}) does not match the batch size ({})", 
+                self.column_id, rows_written - prior_num_rows, batch_size);
         }
     }
 
     fn reset(&mut self) {
-        self.stats = LongStatistics::new();
+        self.splice_stats = LongStatistics::new();
+        self.current_row_group_stats = LongStatistics::new();
+        self.row_group_stats = vec![];
     }
 }
 
 pub struct StructData<'a> {
     column_id: u32,
+    pub(crate) config: &'a Config,
     pub(crate) fields: &'a [Field],
     pub(crate) children: Vec<Data<'a>>,
     present: BooleanRLE,
-    stats: StructStatistics,
+    current_row_group_stats: StructStatistics,
+    row_group_stats: Vec<StructStatistics>,
+    splice_stats: StructStatistics,
 }
 
 impl<'a> StructData<'a> {
-    pub(crate) fn new(fields: &'a [Field], column_id: &mut u32, compression: &Compression) -> Self {
+    pub(crate) fn new(fields: &'a [Field], config: &'a Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         let mut children: Vec<Data> = Vec::new();
+        *column_id += 1;
         for field in fields {
-            *column_id += 1;
-            children.push(Data::new(&field.schema, column_id, compression));
+            children.push(Data::new(&field.1, config, column_id));
         }
 
         StructData {
             column_id: cid,
             fields,
-            present: BooleanRLE::new(compression),
+            config,
+            present: BooleanRLE::new(&config.compression),
             children: children,
-            stats: StructStatistics::new(),
+            current_row_group_stats: StructStatistics::new(),
+            row_group_stats: vec![],
+            splice_stats: StructStatistics::new(),
         }
     }
 
@@ -130,7 +161,12 @@ impl<'a> StructData<'a> {
 
     pub fn write(&mut self, present: bool) {
         self.present.write(present);
-        self.stats.update(present);
+        self.current_row_group_stats.update(present);
+        if self.current_row_group_stats.num_rows >= self.config.row_index_stride as u64 {
+            self.splice_stats.merge(&self.current_row_group_stats);
+            self.row_group_stats.push(self.current_row_group_stats);
+            self.current_row_group_stats = StructStatistics::new();
+        }
     }
 
     pub fn column_id(&self) -> u32 { self.column_id }
@@ -164,17 +200,37 @@ impl<'a> BaseData<'a> for StructData<'a> {
     }
 
     fn statistics(&self, out: &mut Vec<Statistics>) {
-        out.push(Statistics::Struct(self.stats));
+        out.push(Statistics::Struct(self.splice_stats));
+        for child in &self.children {
+            child.statistics(out);
+        }
     }
 
     fn verify_row_count(&self, row_count: u64, batch_size: u64) {
+        let rows_written = self.splice_stats.num_rows + self.current_row_group_stats.num_rows;
+        if rows_written != row_count {
+            let prior_num_rows = row_count - batch_size;
+            panic!("In Struct column {}, the number of values written ({}) does not match the batch size ({})", 
+                self.column_id, rows_written - prior_num_rows, batch_size);
+        }
+
         for child in &self.children {
             child.verify_row_count(row_count, batch_size);
         }
     }
 
+    fn estimated_size(&self) -> usize {
+        let mut size = 0;
+        for child in &self.children {
+            size += child.estimated_size();
+        }
+        size
+    }
+
     fn reset(&mut self) {
-        self.stats = StructStatistics::new();
+        self.splice_stats = StructStatistics::new();
+        self.current_row_group_stats = StructStatistics::new();
+        self.row_group_stats = vec![];
         for child in &mut self.children {
             child.reset();
         }
@@ -188,10 +244,10 @@ pub enum Data<'a> {
 }
 
 impl<'a> Data<'a> {
-    pub(crate) fn new(schema: &'a Schema, column_id: &mut u32, compression: &Compression) -> Self {
+    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
         match schema {
-            Schema::Short | Schema::Int | Schema::Long => Data::Long(LongData::new(schema, column_id, compression)),
-            Schema::Struct(fields) => Data::Struct(StructData::new(fields, column_id, compression)),
+            Schema::Short | Schema::Int | Schema::Long => Data::Long(LongData::new(schema, config, column_id)),
+            Schema::Struct(fields) => Data::Struct(StructData::new(fields, config, column_id)),
         }
     }
 }
@@ -237,6 +293,13 @@ impl<'a> BaseData<'a> for Data<'a> {
         match self {
             Data::Long(x) => x.verify_row_count(row_count, batch_size),
             Data::Struct(x) => x.verify_row_count(row_count, batch_size),
+        }
+    }
+
+    fn estimated_size(&self) -> usize {
+        match self {
+            Data::Long(x) => x.estimated_size(),
+            Data::Struct(x) => x.estimated_size(),
         }
     }
 

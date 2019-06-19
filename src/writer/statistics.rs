@@ -152,7 +152,10 @@ impl Statistics {
                 stat.set_numberOfValues(long_statistics.num_rows);
                 stat.set_hasNull(long_statistics.has_null);
             }
-            _ => unimplemented!()
+            Statistics::Struct(struct_statistics) => {
+                stat.set_numberOfValues(struct_statistics.num_rows);
+                stat.set_hasNull(struct_statistics.has_null);
+            }
         }
         stat
     }
