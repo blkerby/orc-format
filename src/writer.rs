@@ -135,6 +135,10 @@ impl<'a, W: Write> Writer<'a, W> {
     fn make_types(data: &Data<'a>, types: &mut Vec<orc_proto::Type>) {
         let mut t = orc_proto::Type::new();
         match data {
+            Data::Boolean(_) => {
+                t.set_kind(orc_proto::Type_Kind::BOOLEAN);
+                types.push(t);
+            }
             Data::Long(long_data) => {
                 t.set_kind(match long_data.schema {
                     Schema::Short => orc_proto::Type_Kind::SHORT,

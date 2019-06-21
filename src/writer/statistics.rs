@@ -1,12 +1,14 @@
 use crate::protos::orc_proto;
 
 pub use common::BaseStatistics;
+pub use boolean::BooleanStatistics;
 pub use long::LongStatistics;
 pub use struct_::StructStatistics;
 pub use string::StringStatistics;
 pub use double::DoubleStatistics;
 
 mod common;
+mod boolean;
 mod long;
 mod struct_;
 mod string;
@@ -14,6 +16,7 @@ mod double;
 
 #[derive(Debug, Clone)]
 pub enum Statistics {
+    Boolean(BooleanStatistics),
     Long(LongStatistics),
     Double(DoubleStatistics),
     String(StringStatistics),
@@ -21,6 +24,10 @@ pub enum Statistics {
 }
 
 impl Statistics {
+    pub fn unwrap_boolean(&self) -> &BooleanStatistics { 
+        if let Statistics::Boolean(x) = self { x } else { panic!("invalid argument to unwrap_boolean"); }
+    }
+
     pub fn unwrap_long(&self) -> &LongStatistics { 
         if let Statistics::Long(x) = self { x } else { panic!("invalid argument to unwrap_long"); }
     }
@@ -42,6 +49,11 @@ impl Statistics {
         stat.set_numberOfValues(self.num_present());
         stat.set_hasNull(self.has_null());
         match self {
+            Statistics::Boolean(b) => {
+                let mut bool_stat = orc_proto::BucketStatistics::new();
+                bool_stat.set_count(vec![b.num_true, b.num_false]);
+                stat.set_bucketStatistics(bool_stat);
+            }
             Statistics::Long(long_statistics) => {
                 let mut int_stat = orc_proto::IntegerStatistics::new();
                 if let Some(x) = long_statistics.min { int_stat.set_minimum(x); }
@@ -72,6 +84,7 @@ impl Statistics {
 impl BaseStatistics for Statistics {
     fn num_values(&self) -> u64 {
         match self {
+            Statistics::Boolean(x) => x.num_values(),
             Statistics::Long(x) => x.num_values(),
             Statistics::Double(x) => x.num_values(),
             Statistics::String(x) => x.num_values(),
@@ -81,6 +94,7 @@ impl BaseStatistics for Statistics {
 
     fn num_present(&self) -> u64 {
         match self {
+            Statistics::Boolean(x) => x.num_present(),
             Statistics::Long(x) => x.num_present(),
             Statistics::Double(x) => x.num_present(),
             Statistics::String(x) => x.num_present(),
@@ -90,6 +104,7 @@ impl BaseStatistics for Statistics {
 
     fn merge(&mut self, rhs: &Statistics) {
         match self {
+            Statistics::Boolean(x) => x.merge(rhs.unwrap_boolean()),
             Statistics::Long(x) => x.merge(rhs.unwrap_long()),
             Statistics::Double(x) => x.merge(rhs.unwrap_double()),
             Statistics::String(x) => x.merge(rhs.unwrap_string()),

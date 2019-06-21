@@ -12,6 +12,7 @@ fn main() -> Result<()> {
         Field("a".to_owned(), Schema::Double),
         Field("b".to_owned(), Schema::Float),
         Field("c".to_owned(), Schema::Date),
+        Field("d".to_owned(), Schema::Boolean),
     ]);
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
@@ -55,6 +56,11 @@ fn main() -> Result<()> {
             if let Data::Long(long_data) = &mut children[5] {
                 for j in 0..batch_size {
                     long_data.write(Some(j));
+                }
+            } else { unreachable!() }
+            if let Data::Boolean(d) = &mut children[6] {
+                for j in 0..batch_size {
+                    d.write(Some((j % 3 == 0) as bool));
                 }
             } else { unreachable!() }
 
