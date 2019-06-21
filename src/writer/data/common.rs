@@ -10,7 +10,7 @@ pub trait BaseData<'a> {
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64>;
     fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>);
     fn statistics(&self, out: &mut Vec<Statistics>);
-    fn verify_row_count(&self, num_rows: u64, batch_size: u64);
+    fn verify_row_count(&self, num_rows: u64);
     fn estimated_size(&self) -> usize;
     fn reset(&mut self);
 }

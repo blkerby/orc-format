@@ -15,9 +15,8 @@ pub struct StructData<'a> {
     pub(crate) fields: &'a [Field],
     pub(crate) children: Vec<Data<'a>>,
     present: BooleanRLE,
-    current_row_group_stats: StructStatistics,
-    row_group_stats: Vec<StructStatistics>,
     splice_stats: StructStatistics,
+    num_nulls: u64,
 }
 
 impl<'a> StructData<'a> {
@@ -35,9 +34,8 @@ impl<'a> StructData<'a> {
             config,
             present: BooleanRLE::new(&config.compression),
             children: children,
-            current_row_group_stats: StructStatistics::new(),
-            row_group_stats: vec![],
             splice_stats: StructStatistics::new(),
+            num_nulls: 0,
         }
     }
 
@@ -46,13 +44,9 @@ impl<'a> StructData<'a> {
     }
 
     pub fn write(&mut self, present: bool) {
+        self.num_nulls += (!present) as u64;
         self.present.write(present);
-        self.current_row_group_stats.update(present);
-        if self.current_row_group_stats.num_rows >= self.config.row_index_stride as u64 {
-            self.splice_stats.merge(&self.current_row_group_stats);
-            self.row_group_stats.push(self.current_row_group_stats);
-            self.current_row_group_stats = StructStatistics::new();
-        }
+        self.splice_stats.update(present);
     }
 
     pub fn column_id(&self) -> u32 { self.column_id }
@@ -61,7 +55,7 @@ impl<'a> StructData<'a> {
 impl<'a> BaseData<'a> for StructData<'a> {
     fn column_id(&self) -> u32 { self.column_id }
 
-    fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
+    fn write_index_streams<W: Write>(&mut self, _out: &mut W, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
         Ok(0)
     }
 
@@ -97,16 +91,15 @@ impl<'a> BaseData<'a> for StructData<'a> {
         }
     }
 
-    fn verify_row_count(&self, row_count: u64, batch_size: u64) {
-        let rows_written = self.splice_stats.num_rows + self.current_row_group_stats.num_rows;
-        if rows_written != row_count {
-            let prior_num_rows = row_count - batch_size;
-            panic!("In Struct column {}, the number of values written ({}) does not match the batch size ({})", 
-                self.column_id, rows_written - prior_num_rows, batch_size);
+    fn verify_row_count(&self, expected_row_count: u64) {
+        let rows_written = self.splice_stats.num_rows;
+        if rows_written != expected_row_count {
+            panic!("In Struct column {}, the number of values written ({}) does not match the expected number ({})", 
+                self.column_id, rows_written, expected_row_count);
         }
 
         for child in &self.children {
-            child.verify_row_count(row_count, batch_size);
+            child.verify_row_count(expected_row_count - self.num_nulls);
         }
     }
 
@@ -120,8 +113,6 @@ impl<'a> BaseData<'a> for StructData<'a> {
 
     fn reset(&mut self) {
         self.splice_stats = StructStatistics::new();
-        self.current_row_group_stats = StructStatistics::new();
-        self.row_group_stats = vec![];
         for child in &mut self.children {
             child.reset();
         }

@@ -1,5 +1,5 @@
 use std::cmp;
-use super::common::{BaseStatistics, merge_min, merge_max, merge_sum};
+use super::common::BaseStatistics;
 
 #[derive(Debug, Copy, Clone)]
 pub struct LongStatistics {
@@ -10,11 +10,47 @@ pub struct LongStatistics {
     pub sum: Option<i64>,
 }
 
+fn merge_min(x: &mut Option<i64>, y: Option<i64>) {
+    if let Some(yv) = y {
+        if let Some(xv) = x {
+            if yv < *xv {
+                *x = y;
+            }
+        } else {
+            *x = y;
+        }
+    }
+}
+
+fn merge_max(x: &mut Option<i64>, y: Option<i64>) {
+    if let Some(yv) = y {
+        if let Some(xv) = x {
+            if yv > *xv {
+                *x = y;
+            }
+        } else {
+            *x = y;
+        }
+    }
+}
+
+fn merge_sum(x: &mut Option<i64>, y: Option<i64>) {
+    if let Some(yv) = y {
+        if let Some(xv) = x {
+            *x = xv.checked_add(yv);
+        } else {
+            *x = None;
+        }
+    } else {
+        *x = None;
+    }
+}
+
 impl LongStatistics {
     pub fn new() -> LongStatistics {
         LongStatistics {
-            has_null: false,
             num_rows: 0,
+            has_null: false,
             min: None,
             max: None,
             sum: Some(0),
@@ -22,21 +58,11 @@ impl LongStatistics {
     }
 
     pub fn update(&mut self, x: Option<i64>) {
-        if let Some(y) = x {
-            self.min = match self.min {
-                None => x,
-                Some(z) => Some(cmp::min(y, z)),
-            };
-            self.max = match self.max {
-                None => x,
-                Some(z) => Some(cmp::max(y, z)),
-            };
-            self.sum = match self.sum {
-                None => None,
-                Some(z) => y.checked_add(z),
-            };
-        };
         self.num_rows += 1;
+        self.has_null |= x.is_none();
+        merge_min(&mut self.min, x);
+        merge_max(&mut self.max, x);
+        merge_sum(&mut self.sum, x);
     }
 }
 
@@ -46,10 +72,10 @@ impl BaseStatistics for LongStatistics {
     fn has_null(&self) -> bool { self.has_null }
 
     fn merge(&mut self, rhs: &Self) {
-        self.has_null = self.has_null || rhs.has_null;
-        self.num_rows = self.num_rows + rhs.num_rows;
-        self.min = merge_min(self.min, rhs.min);
-        self.max = merge_max(self.max, rhs.max);
-        self.sum = merge_sum(self.sum, rhs.sum);
+        self.num_rows += rhs.num_rows;
+        self.has_null |= rhs.has_null;
+        merge_min(&mut self.min, rhs.min);
+        merge_max(&mut self.max, rhs.max);
+        merge_sum(&mut self.sum, rhs.sum);        
     }
 }

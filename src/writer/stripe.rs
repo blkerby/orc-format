@@ -45,7 +45,7 @@ impl<'a> Stripe<'a> {
 
     pub fn write_batch(&mut self, num_rows: u64) -> Result<()> {
         self.num_rows += num_rows;
-        self.data.verify_row_count(self.num_rows, num_rows);
+        self.data.verify_row_count(self.num_rows);
         Ok(())
     }
 
