@@ -31,7 +31,8 @@ pub enum Data<'a> {
 impl<'a> Data<'a> {
     pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
         match schema {
-            Schema::Short | Schema::Int | Schema::Long => Data::Long(LongData::new(schema, config, column_id)),
+            Schema::Short | Schema::Int | Schema::Long | Schema::Date => 
+                Data::Long(LongData::new(schema, config, column_id)),
             Schema::Float => Data::Float(FloatData::new(schema, config, column_id)),
             Schema::Double => Data::Double(DoubleData::new(schema, config, column_id)),
             Schema::String => Data::String(StringData::new(schema, config, column_id)),

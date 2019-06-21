@@ -4,6 +4,7 @@ pub enum Schema {
     Short,
     Int,
     Long,
+    Date,
     Float,
     Double,
     String,

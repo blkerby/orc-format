@@ -140,6 +140,7 @@ impl<'a, W: Write> Writer<'a, W> {
                     Schema::Short => orc_proto::Type_Kind::SHORT,
                     Schema::Int => orc_proto::Type_Kind::INT,
                     Schema::Long => orc_proto::Type_Kind::LONG,
+                    Schema::Date => orc_proto::Type_Kind::DATE,
                     _ => unreachable!(),
                 });
                 types.push(t);
