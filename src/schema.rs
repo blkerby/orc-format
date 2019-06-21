@@ -4,6 +4,7 @@ pub enum Schema {
     Short,
     Int,
     Long,
+    Double,
     String,
     Struct(Vec<Field>)
 }

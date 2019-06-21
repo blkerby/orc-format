@@ -5,7 +5,7 @@ use crate::schema::Schema;
 use crate::writer::Config;
 use crate::writer::encoder::{BooleanRLE, SignedIntRLEv1};
 use crate::writer::stripe::StreamInfo;
-use crate::writer::statistics::{Statistics, LongStatistics};
+use crate::writer::statistics::{Statistics, BaseStatistics, LongStatistics};
 use crate::writer::data::common::BaseData;
 
 
@@ -15,7 +15,7 @@ pub struct LongData<'a> {
     pub(crate) schema: &'a Schema,
     present: BooleanRLE,
     data: SignedIntRLEv1,
-    splice_stats: LongStatistics,
+    stripe_stats: LongStatistics,
 }
 
 impl<'a> LongData<'a> {
@@ -27,7 +27,7 @@ impl<'a> LongData<'a> {
             schema,
             present: BooleanRLE::new(&config.compression),
             data: SignedIntRLEv1::new(&config.compression),
-            splice_stats: LongStatistics::new(),
+            stripe_stats: LongStatistics::new(),
         }
     }
 
@@ -41,7 +41,7 @@ impl<'a> LongData<'a> {
                 self.present.write(false); 
             }
         }
-        self.splice_stats.update(x);
+        self.stripe_stats.update(x);
     }
 }
 
@@ -54,7 +54,7 @@ impl<'a> BaseData<'a> for LongData<'a> {
 
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
         let mut total_len = 0;
-        if self.splice_stats.has_null {
+        if self.stripe_stats.has_null() {
             let present_len = self.present.finish(out)?;
             stream_infos_out.push(StreamInfo {
                 kind: orc_proto::Stream_Kind::PRESENT,
@@ -80,7 +80,7 @@ impl<'a> BaseData<'a> for LongData<'a> {
     }
 
     fn statistics(&self, out: &mut Vec<Statistics>) {
-        out.push(Statistics::Long(self.splice_stats));
+        out.push(Statistics::Long(self.stripe_stats));
     }
 
     fn estimated_size(&self) -> usize {
@@ -88,14 +88,14 @@ impl<'a> BaseData<'a> for LongData<'a> {
     }
 
     fn verify_row_count(&self, expected_row_count: u64) {
-        let rows_written = self.splice_stats.num_rows;
+        let rows_written = self.stripe_stats.num_values();
         if rows_written != expected_row_count {
-            panic!("In Long column {}, the number of values written ({}) does not match the expected number ({})", 
+            panic!("In column {} (type Long), the number of values written ({}) does not match the expected number ({})", 
                 self.column_id, rows_written, expected_row_count);
         }
     }
 
     fn reset(&mut self) {
-        self.splice_stats = LongStatistics::new();
+        self.stripe_stats = LongStatistics::new();
     }
 }

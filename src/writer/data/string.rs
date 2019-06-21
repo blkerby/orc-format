@@ -15,7 +15,7 @@ pub struct StringData<'a> {
     present: BooleanRLE,
     data: CompressionStream,
     lengths: UnsignedIntRLEv1,
-    splice_stats: StringStatistics,
+    stripe_stats: StringStatistics,
 }
 
 impl<'a> StringData<'a> {
@@ -28,7 +28,7 @@ impl<'a> StringData<'a> {
             present: BooleanRLE::new(&config.compression),
             data: CompressionStream::new(&config.compression),
             lengths: UnsignedIntRLEv1::new(&config.compression),
-            splice_stats: StringStatistics::new(),
+            stripe_stats: StringStatistics::new(),
         }
     }
 
@@ -36,14 +36,14 @@ impl<'a> StringData<'a> {
         match x {
             Some(xv) => {
                 self.present.write(true);
-                self.data.write(xv.as_bytes());
+                self.data.write_bytes(xv.as_bytes());
                 self.lengths.write(xv.len() as u64);
             }
             None => { 
                 self.present.write(false); 
             }
         }
-        self.splice_stats.update(x);
+        self.stripe_stats.update(x);
     }
 }
 
@@ -57,7 +57,7 @@ impl<'a> BaseData<'a> for StringData<'a> {
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
         let mut total_len = 0;
         
-        if self.splice_stats.has_null {
+        if self.stripe_stats.has_null() {
             let present_len = self.present.finish(out)?;
             stream_infos_out.push(StreamInfo {
                 kind: orc_proto::Stream_Kind::PRESENT,
@@ -92,7 +92,7 @@ impl<'a> BaseData<'a> for StringData<'a> {
     }
 
     fn statistics(&self, out: &mut Vec<Statistics>) {
-        out.push(Statistics::String(self.splice_stats.clone()));
+        out.push(Statistics::String(self.stripe_stats.clone()));
     }
 
     fn estimated_size(&self) -> usize {
@@ -101,14 +101,14 @@ impl<'a> BaseData<'a> for StringData<'a> {
     }
 
     fn verify_row_count(&self, expected_row_count: u64) {
-        let rows_written = self.splice_stats.num_rows;
+        let rows_written = self.stripe_stats.num_values();
         if rows_written != expected_row_count {
-            panic!("In String column {}, the number of values written ({}) does not match the expected number ({})", 
+            panic!("In column {} (type String), the number of values written ({}) does not match the expected number ({})", 
                 self.column_id, rows_written, expected_row_count);
         }
     }
 
     fn reset(&mut self) {
-        self.splice_stats = StringStatistics::new();
+        self.stripe_stats = StringStatistics::new();
     }
 }

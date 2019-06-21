@@ -9,11 +9,12 @@ fn main() -> Result<()> {
         Field("x".to_owned(), Schema::Long), 
         Field("y".to_owned(), Schema::Long),
         Field("z".to_owned(), Schema::String),
+        Field("a".to_owned(), Schema::Double),
     ]);
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
     let mut out = File::create("target/test.orc")?;
-    let config = Config::new().with_row_index_stride(0).with_compression(SnappyCompression::new().build());
+    let config = Config::new().with_compression(SnappyCompression::new().build());
     let mut writer = Writer::new(&mut out, &schema, &config)?;
     let batch_size: i64 = 10;
     for n in 0..1 {
@@ -39,6 +40,12 @@ fn main() -> Result<()> {
                     string_data.write(Some(&s));
                 }
             } else { unreachable!() }
+            if let Data::Double(double_data) = &mut children[3] {
+                for j in 0..batch_size {
+                    double_data.write(Some((j as f64) * 0.01));
+                }
+            } else { unreachable!() }
+
 
             for _ in 0..batch_size {
                 struct_data.write(true);

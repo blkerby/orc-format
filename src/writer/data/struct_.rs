@@ -15,7 +15,7 @@ pub struct StructData<'a> {
     pub(crate) fields: &'a [Field],
     pub(crate) children: Vec<Data<'a>>,
     present: BooleanRLE,
-    splice_stats: StructStatistics,
+    stripe_stats: StructStatistics,
     num_nulls: u64,
 }
 
@@ -34,7 +34,7 @@ impl<'a> StructData<'a> {
             config,
             present: BooleanRLE::new(&config.compression),
             children: children,
-            splice_stats: StructStatistics::new(),
+            stripe_stats: StructStatistics::new(),
             num_nulls: 0,
         }
     }
@@ -46,7 +46,7 @@ impl<'a> StructData<'a> {
     pub fn write(&mut self, present: bool) {
         self.num_nulls += (!present) as u64;
         self.present.write(present);
-        self.splice_stats.update(present);
+        self.stripe_stats.update(present);
     }
 
     pub fn column_id(&self) -> u32 { self.column_id }
@@ -60,17 +60,25 @@ impl<'a> BaseData<'a> for StructData<'a> {
     }
 
     fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
-        let present_len = self.present.finish(out)?;
-        stream_infos_out.push(StreamInfo {
-            kind: orc_proto::Stream_Kind::PRESENT,
-            column_id: self.column_id,
-            length: present_len as u64,
-        });
+        let mut total_len = 0;
+
+        if self.stripe_stats.has_null() {
+            let present_len = self.present.finish(out)?;
+            stream_infos_out.push(StreamInfo {
+                kind: orc_proto::Stream_Kind::PRESENT,
+                column_id: self.column_id,
+                length: present_len as u64,
+            });
+            total_len += present_len;
+        }
+        
         let mut children_len = 0;
         for child in &mut self.children {
             children_len += child.write_data_streams(out, stream_infos_out)?;
         }
-        Ok(present_len + children_len)
+        total_len += children_len;
+
+        Ok(total_len)
     }
 
     fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>) {
@@ -85,16 +93,16 @@ impl<'a> BaseData<'a> for StructData<'a> {
 
     fn statistics(&self, out: &mut Vec<Statistics>) {
         assert_eq!(out.len(), self.column_id as usize);
-        out.push(Statistics::Struct(self.splice_stats));
+        out.push(Statistics::Struct(self.stripe_stats));
         for child in &self.children {
             child.statistics(out);
         }
     }
 
     fn verify_row_count(&self, expected_row_count: u64) {
-        let rows_written = self.splice_stats.num_rows;
+        let rows_written = self.stripe_stats.num_values();
         if rows_written != expected_row_count {
-            panic!("In Struct column {}, the number of values written ({}) does not match the expected number ({})", 
+            panic!("In column {} (type Struct), the number of values written ({}) does not match the expected number ({})", 
                 self.column_id, rows_written, expected_row_count);
         }
 
@@ -112,7 +120,7 @@ impl<'a> BaseData<'a> for StructData<'a> {
     }
 
     fn reset(&mut self) {
-        self.splice_stats = StructStatistics::new();
+        self.stripe_stats = StructStatistics::new();
         for child in &mut self.children {
             child.reset();
         }

@@ -27,16 +27,17 @@ pub struct Config {
 impl Config {
     pub fn new() -> Config {
         Config {
-            row_index_stride: 10000,
+            row_index_stride: 0,
             compression: NoCompression::new().build(),
             stripe_size: 67108864,
         }
     }
 
-    pub fn with_row_index_stride(mut self, row_index_stride: u32) -> Self {
-        self.row_index_stride = row_index_stride;
-        self
-    }
+    // (Row indices are not yet implemented)
+    // pub fn with_row_index_stride(mut self, row_index_stride: u32) -> Self {
+    //     self.row_index_stride = row_index_stride;
+    //     self
+    // }
 
     pub fn with_compression(mut self, compression: Compression) -> Self {
         self.compression = compression;
@@ -141,6 +142,10 @@ impl<'a, W: Write> Writer<'a, W> {
                     Schema::Long => orc_proto::Type_Kind::LONG,
                     _ => unreachable!(),
                 });
+                types.push(t);
+            }
+            Data::Double(double_data) => {
+                t.set_kind(orc_proto::Type_Kind::DOUBLE);
                 types.push(t);
             }
             Data::String(string_data) => {

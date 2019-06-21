@@ -3,8 +3,8 @@ use super::common::BaseStatistics;
 
 #[derive(Debug, Copy, Clone)]
 pub struct LongStatistics {
-    pub num_rows: u64,
-    pub has_null: bool,
+    pub num_values: u64,
+    pub num_present: u64,
     pub min: Option<i64>,
     pub max: Option<i64>,
     pub sum: Option<i64>,
@@ -49,8 +49,8 @@ fn merge_sum(x: &mut Option<i64>, y: Option<i64>) {
 impl LongStatistics {
     pub fn new() -> LongStatistics {
         LongStatistics {
-            num_rows: 0,
-            has_null: false,
+            num_values: 0,
+            num_present: 0,
             min: None,
             max: None,
             sum: Some(0),
@@ -58,22 +58,22 @@ impl LongStatistics {
     }
 
     pub fn update(&mut self, x: Option<i64>) {
-        self.num_rows += 1;
-        self.has_null |= x.is_none();
+        self.num_values += 1;
+        self.num_present += x.is_some() as u64;
         merge_min(&mut self.min, x);
         merge_max(&mut self.max, x);
-        merge_sum(&mut self.sum, x);
+        if let Some(xv) = x { merge_sum(&mut self.sum, Some(xv)) };
     }
 }
 
 impl BaseStatistics for LongStatistics {
-    fn num_rows(&self) -> u64 { self.num_rows }
+    fn num_values(&self) -> u64 { self.num_values }
 
-    fn has_null(&self) -> bool { self.has_null }
+    fn num_present(&self) -> u64 { self.num_present }
 
     fn merge(&mut self, rhs: &Self) {
-        self.num_rows += rhs.num_rows;
-        self.has_null |= rhs.has_null;
+        self.num_values += rhs.num_values;
+        self.num_present += rhs.num_present;
         merge_min(&mut self.min, rhs.min);
         merge_max(&mut self.max, rhs.max);
         merge_sum(&mut self.sum, rhs.sum);        
