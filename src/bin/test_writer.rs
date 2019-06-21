@@ -10,6 +10,7 @@ fn main() -> Result<()> {
         Field("y".to_owned(), Schema::Long),
         Field("z".to_owned(), Schema::String),
         Field("a".to_owned(), Schema::Double),
+        Field("b".to_owned(), Schema::Float),
     ]);
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
@@ -43,6 +44,11 @@ fn main() -> Result<()> {
             if let Data::Double(double_data) = &mut children[3] {
                 for j in 0..batch_size {
                     double_data.write(Some((j as f64) * 0.01));
+                }
+            } else { unreachable!() }
+            if let Data::Float(float_data) = &mut children[4] {
+                for j in 0..batch_size {
+                    float_data.write(Some((j as f32) * 0.5));
                 }
             } else { unreachable!() }
 

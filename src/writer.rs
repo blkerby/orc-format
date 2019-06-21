@@ -144,11 +144,15 @@ impl<'a, W: Write> Writer<'a, W> {
                 });
                 types.push(t);
             }
-            Data::Double(double_data) => {
+            Data::Float(_) => {
+                t.set_kind(orc_proto::Type_Kind::FLOAT);
+                types.push(t);
+            }
+            Data::Double(_) => {
                 t.set_kind(orc_proto::Type_Kind::DOUBLE);
                 types.push(t);
             }
-            Data::String(string_data) => {
+            Data::String(_) => {
                 t.set_kind(orc_proto::Type_Kind::STRING);
                 types.push(t);
             }
