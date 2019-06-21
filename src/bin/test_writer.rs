@@ -22,59 +22,47 @@ fn main() -> Result<()> {
     let batch_size: i64 = 10;
     for n in 0..1 {
     // for n in 0..100000 {
-        let data = writer.data();        
-        if let Data::Struct(struct_data) = data {
-            let children = struct_data.children();
-            if let Data::Long(long_data) = &mut children[0] {
-                long_data.write(None);
-                for j in 0..batch_size - 1 {
-                    long_data.write(Some(n * batch_size + j));
-                }
-            } else { unreachable!() }
-            if let Data::Long(long_data) = &mut children[1] {
-                for j in 0..batch_size - 1 {
-                    long_data.write(Some(n * batch_size + j * j));
-                }
-                long_data.write(None);
-            } else { unreachable!() }
-            if let Data::String(string_data) = &mut children[2] {
-                for j in 0..batch_size {
-                    let s = format!("hello {}", j / 3);
-                    string_data.write(Some(&s));
-                }
-            } else { unreachable!() }
-            if let Data::Double(double_data) = &mut children[3] {
-                for j in 0..batch_size {
-                    double_data.write(Some(((j / 3) as f64) * 0.01));
-                }
-            } else { unreachable!() }
-            if let Data::Float(float_data) = &mut children[4] {
-                for j in 0..batch_size {
-                    float_data.write(Some(((j / 3) as f32) * 0.5));
-                }
-            } else { unreachable!() }
-            if let Data::Long(long_data) = &mut children[5] {
-                for j in 0..batch_size {
-                    long_data.write(Some(j));
-                }
-            } else { unreachable!() }
-            if let Data::Boolean(d) = &mut children[6] {
-                for j in 0..batch_size {
-                    d.write(Some((j % 3 == 0) as bool));
-                }
-            } else { unreachable!() }
-
-
-            for _ in 0..batch_size {
-                struct_data.write(true);
-            }
-        } else { unreachable!() }
+        let data = writer.data();
+        let root = data.unwrap_struct();
+        let x = root.child(0).unwrap_long();
+        x.write(None);
+        for j in 0..batch_size - 1 {
+            x.write(Some(n * batch_size + j));
+        }
+        let y = root.child(1).unwrap_long();
+        for j in 0..batch_size - 1 {
+            y.write(Some(n * batch_size + j * j));
+        }
+        y.write(None);
+        let z = root.child(2).unwrap_string();
+        for j in 0..batch_size {
+            let s = format!("hello {}", j / 3);
+            z.write(Some(&s));
+        }
+        let a = root.child(3).unwrap_double();
+        for j in 0..batch_size {
+            a.write(Some(((j / 3) as f64) * 0.01));
+        }
+        let b = root.child(4).unwrap_float();
+        for j in 0..batch_size {
+            b.write(Some(((j / 3) as f32) * 0.5));
+        }
+        let c = root.child(5).unwrap_long();
+        for j in 0..batch_size {
+            c.write(Some(j));
+        }
+        let d = root.child(6).unwrap_boolean();
+        for j in 0..batch_size {
+            d.write(Some((j % 3 == 0) as bool));
+        }
+        for _ in 0..batch_size {
+            root.write(true);
+        }
         writer.write_batch(batch_size as u64)?;
         
         let data = writer.data();
-        if let Data::Struct(struct_data) = data {
-            struct_data.write(false);
-        }
+        let root = data.unwrap_struct();
+        root.write(false);
         writer.write_batch(1)?;
     }
     writer.finish()?;

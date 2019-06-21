@@ -43,6 +43,30 @@ impl<'a> Data<'a> {
             Schema::Struct(fields) => Data::Struct(StructData::new(fields, config, column_id)),
         }
     }
+
+    pub fn unwrap_boolean(&mut self) -> &mut BooleanData<'a> {
+        if let Data::Boolean(x) = self { x } else { unreachable!() }
+    }
+
+    pub fn unwrap_long(&mut self) -> &mut LongData<'a> {
+        if let Data::Long(x) = self { x } else { unreachable!() }
+    }
+
+    pub fn unwrap_float(&mut self) -> &mut FloatData<'a> {
+        if let Data::Float(x) = self { x } else { unreachable!() }
+    }
+
+    pub fn unwrap_double(&mut self) -> &mut DoubleData<'a> {
+        if let Data::Double(x) = self { x } else { unreachable!() }
+    }
+
+    pub fn unwrap_string(&mut self) -> &mut StringData<'a> {
+        if let Data::String(x) = self { x } else { unreachable!() }
+    }
+
+    pub fn unwrap_struct(&mut self) -> &mut StructData<'a> {
+        if let Data::Struct(x) = self { x } else { unreachable!() }
+    }
 }
 
 // We could use `enum_dispatch` to autogenerate this boilerplate, but unfortunately it doesn't work with RLS.

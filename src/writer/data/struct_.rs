@@ -43,6 +43,10 @@ impl<'a> StructData<'a> {
         &mut self.children
     }
 
+    pub fn child(&mut self, i: usize) -> &mut Data<'a> {
+        &mut self.children[i]
+    }
+
     pub fn write(&mut self, present: bool) {
         self.num_nulls += (!present) as u64;
         self.present.write(present);
