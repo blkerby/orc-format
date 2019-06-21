@@ -1,13 +1,20 @@
 use crate::writer::compression::Compression;
 use std::io::{Write, Result};
+use std::mem;
 
-use crate::writer::encoder::byte_rle::ByteRLE;
+use crate::writer::encoder::byte_rle::{ByteRLE, ByteRLEPosition};
 
 
 pub struct BooleanRLE {
     byte_rle: ByteRLE,
     buf: u8,
     cnt: u8,
+    row_group_start_bits: u8,
+}
+
+pub struct BooleanRLEPosition {
+    byte_rle_pos: ByteRLEPosition,
+    bit_pos: u8,
 }
 
 impl BooleanRLE {
@@ -16,6 +23,15 @@ impl BooleanRLE {
             byte_rle: ByteRLE::new(compression),
             buf: 0,
             cnt: 0,
+            row_group_start_bits: 0,
+        }
+    }
+
+    pub fn finish_row_group(&mut self) -> BooleanRLEPosition {
+        let b = mem::replace(&mut self.row_group_start_bits, self.cnt);
+        BooleanRLEPosition {
+            byte_rle_pos: self.byte_rle.finish_row_group(),
+            bit_pos: b,
         }
     }
 

@@ -7,13 +7,13 @@ use std::io::Result;
 fn main() -> Result<()> {
     let schema = Schema::Struct(vec![Field("x".to_owned(), Schema::Long), Field("y".to_owned(), Schema::Long)]);
     // let schema = Schema::Long;
-    // let mut out = File::create("/dev/null")?;
-    let mut out = File::create("target/test.orc")?;
-    let config = Config::new().with_row_index_stride(0).with_compression(SnappyCompression::new().build());
+    let mut out = File::create("/dev/null")?;
+    // let mut out = File::create("target/test.orc")?;
+    let config = Config::new();//.with_row_index_stride(10000).with_compression(SnappyCompression::new().build());
     let mut writer = Writer::new(&mut out, &schema, &config)?;
-    let batch_size: i64 = 10;
-    for n in 0..1 {
-    // for n in 0..100000 {
+    let batch_size: i64 = 1000;
+    // for n in 0..1 {
+    for n in 0..100000 {
         let data = writer.data();        
         if let Data::Struct(struct_data) = data {
             let children = struct_data.children();

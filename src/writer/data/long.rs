@@ -10,6 +10,7 @@ use crate::writer::data::common::BaseData;
 
 
 
+
 pub struct LongData<'a> {
     pub(crate) column_id: u32,
     pub(crate) config: &'a Config,
@@ -60,6 +61,13 @@ impl<'a> BaseData<'a> for LongData<'a> {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
+        // if self.current_row_group_stats.num_rows > 0 {
+        //     self.row_group_stats.push(self.current_row_group_stats);
+        // }
+        // let entries: Vec<orc_proto::RowIndexEntry> = Vec::new();
+        // for stat in self.row_group_stats {
+
+        // }
         Ok(0)
     }
 

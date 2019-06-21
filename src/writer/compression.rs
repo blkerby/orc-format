@@ -73,6 +73,12 @@ struct BlockInfo {
     length: usize,
 }
 
+#[derive(Eq, PartialEq)]
+pub struct CompressionStreamPosition {
+    pub chunk_position: usize,
+    pub chunk_offset: usize,
+}
+
 pub struct CompressionStream {
     compressor: Option<Box<dyn Compressor>>,
     buf: Buffer,
@@ -87,6 +93,13 @@ impl CompressionStream {
             buf: Buffer::with_capacity(compression.block_size()),
             output: Buffer::new(),
             output_block_info: Vec::new(),
+        }
+    }
+
+    pub fn position(&self) -> CompressionStreamPosition {
+        CompressionStreamPosition {
+            chunk_position: self.output.len(),
+            chunk_offset: self.buf.len(),
         }
     }
 
