@@ -16,6 +16,7 @@ fn main() -> Result<()> {
         Field("e".to_owned(), Schema::Decimal(15, 2)),
         Field("f".to_owned(), Schema::List(Box::new(Schema::Long))),
         Field("g".to_owned(), Schema::Map(Box::new(Schema::String), Box::new(Schema::Boolean))),
+        Field("h".to_owned(), Schema::Timestamp),
     ]);
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
@@ -85,6 +86,11 @@ fn main() -> Result<()> {
         }
         for _ in 0..batch_size {
             g.write(Some(2));
+        }
+
+        let h = root.child(10).unwrap_timestamp();
+        for j in 0..batch_size {
+            h.write_nanos(j, 10u32.pow((j % 9) as u32));
         }
 
         for _ in 0..batch_size {

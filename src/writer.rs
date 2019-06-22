@@ -172,6 +172,10 @@ impl<'a, W: Write> Writer<'a, W> {
                 t.set_kind(orc_proto::Type_Kind::DOUBLE);
                 types.push(t);
             }
+            Data::Timestamp(_) => {
+                t.set_kind(orc_proto::Type_Kind::TIMESTAMP);
+                types.push(t);
+            }
             Data::Decimal64(d) => {
                 t.set_kind(orc_proto::Type_Kind::DECIMAL);
                 t.set_precision(d.precision());

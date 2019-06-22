@@ -7,6 +7,7 @@ pub use long::LongStatistics;
 pub use string::StringStatistics;
 pub use double::DoubleStatistics;
 pub use decimal64::Decimal64Statistics;
+pub use timestamp::TimestampStatistics;
 
 mod common;
 mod boolean;
@@ -15,6 +16,7 @@ mod generic;
 mod string;
 mod double;
 mod decimal64;
+mod timestamp;
 
 #[derive(Debug, Clone)]
 pub enum Statistics {
@@ -22,6 +24,7 @@ pub enum Statistics {
     Long(LongStatistics),
     Double(DoubleStatistics),
     Decimal64(Decimal64Statistics),
+    Timestamp(TimestampStatistics),
     String(StringStatistics),
     Generic(GenericStatistics),
 }
@@ -45,6 +48,10 @@ impl Statistics {
 
     pub fn unwrap_double(&self) -> &DoubleStatistics { 
         if let Statistics::Double(x) = self { x } else { panic!("invalid argument to unwrap_double"); }
+    }
+
+    pub fn unwrap_timestamp(&self) -> &TimestampStatistics { 
+        if let Statistics::Timestamp(x) = self { x } else { panic!("invalid argument to unwrap_timestamp"); }
     }
 
     pub fn unwrap_generic(&self) -> &GenericStatistics { 
@@ -75,6 +82,12 @@ impl Statistics {
                 if let Some(x) = d.sum { dec_stat.set_sum(d.format(x)); }
                 stat.set_decimalStatistics(dec_stat);
             }
+            Statistics::Timestamp(d) => {
+                let mut ts_stat = orc_proto::TimestampStatistics::new();
+                if let Some(x) = d.min_epoch_millis { ts_stat.set_minimum(x); }
+                if let Some(x) = d.max_epoch_millis { ts_stat.set_maximum(x); }
+                stat.set_timestampStatistics(ts_stat);
+            }
             Statistics::Double(double_statistics) => {
                 let mut double_stat = orc_proto::DoubleStatistics::new();
                 if let Some(x) = double_statistics.min { double_stat.set_minimum(x); }
@@ -102,6 +115,7 @@ impl BaseStatistics for Statistics {
             Statistics::Long(x) => x.num_values(),
             Statistics::Double(x) => x.num_values(),
             Statistics::Decimal64(x) => x.num_values(),
+            Statistics::Timestamp(x) => x.num_values(),
             Statistics::String(x) => x.num_values(),
             Statistics::Generic(x) => x.num_values(),
         }
@@ -113,6 +127,7 @@ impl BaseStatistics for Statistics {
             Statistics::Long(x) => x.num_present(),
             Statistics::Double(x) => x.num_present(),
             Statistics::Decimal64(x) => x.num_present(),
+            Statistics::Timestamp(x) => x.num_present(),
             Statistics::String(x) => x.num_present(),
             Statistics::Generic(x) => x.num_present(),
         }
@@ -124,6 +139,7 @@ impl BaseStatistics for Statistics {
             Statistics::Long(x) => x.merge(rhs.unwrap_long()),
             Statistics::Double(x) => x.merge(rhs.unwrap_double()),
             Statistics::Decimal64(x) => x.merge(rhs.unwrap_decimal64()),
+            Statistics::Timestamp(x) => x.merge(rhs.unwrap_timestamp()),
             Statistics::String(x) => x.merge(rhs.unwrap_string()),
             Statistics::Generic(x) => x.merge(rhs.unwrap_generic()),
         }
