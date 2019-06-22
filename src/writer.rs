@@ -172,6 +172,12 @@ impl<'a, W: Write> Writer<'a, W> {
                 t.set_kind(orc_proto::Type_Kind::DOUBLE);
                 types.push(t);
             }
+            Data::Decimal64(d) => {
+                t.set_kind(orc_proto::Type_Kind::DECIMAL);
+                t.set_precision(d.precision());
+                t.set_scale(d.scale());
+                types.push(t);
+            }
             Data::String(_) => {
                 t.set_kind(orc_proto::Type_Kind::STRING);
                 types.push(t);
@@ -184,7 +190,7 @@ impl<'a, W: Write> Writer<'a, W> {
                 }
 
                 let mut field_names: Vec<String> = Vec::new();
-                for f in struct_data.fields {
+                for f in struct_data.fields() {
                     field_names.push(f.0.to_owned());
                 }
 

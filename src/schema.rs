@@ -8,7 +8,7 @@ pub enum Schema {
     Date,
     Float,
     Double,
-    // Decimal(u8, u8),
+    Decimal(u32, u32),
     String,
     Struct(Vec<Field>)
 }

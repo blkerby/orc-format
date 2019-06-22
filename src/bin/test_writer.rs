@@ -1,6 +1,6 @@
 use orc_rs::schema::{Schema, Field};
 use orc_rs::writer::SnappyCompression;
-use orc_rs::writer::{Config, Writer, Data};
+use orc_rs::writer::{Config, Writer};
 use std::fs::File;
 use std::io::Result;
 
@@ -13,11 +13,12 @@ fn main() -> Result<()> {
         Field("b".to_owned(), Schema::Float),
         Field("c".to_owned(), Schema::Date),
         Field("d".to_owned(), Schema::Boolean),
+        Field("e".to_owned(), Schema::Decimal(15,3)),
     ]);
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
     let mut out = File::create("target/test.orc")?;
-    let config = Config::new().with_compression(SnappyCompression::new().build());
+    let config = Config::new();//.with_compression(SnappyCompression::new().build());
     let mut writer = Writer::new(&mut out, &schema, &config)?;
     let batch_size: i64 = 10;
     for n in 0..1 {
@@ -55,6 +56,11 @@ fn main() -> Result<()> {
         for j in 0..batch_size {
             d.write(Some((j % 3 == 0) as bool));
         }
+        let e = root.child(7).unwrap_decimal64();
+        for j in 0..batch_size {
+            e.write(Some(j))// - batch_size / 2));
+        }
+
         for _ in 0..batch_size {
             root.write(true);
         }

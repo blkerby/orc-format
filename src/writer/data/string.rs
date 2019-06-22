@@ -49,6 +49,8 @@ impl<'a> StringData<'a> {
 }
 
 impl<'a> BaseData<'a> for StringData<'a> {
+    fn schema(&self) -> &'a Schema { self.schema }
+
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {

@@ -6,6 +6,7 @@ pub use long::LongStatistics;
 pub use struct_::StructStatistics;
 pub use string::StringStatistics;
 pub use double::DoubleStatistics;
+pub use decimal64::Decimal64Statistics;
 
 mod common;
 mod boolean;
@@ -20,6 +21,7 @@ pub enum Statistics {
     Boolean(BooleanStatistics),
     Long(LongStatistics),
     Double(DoubleStatistics),
+    Decimal64(Decimal64Statistics),
     String(StringStatistics),
     Struct(StructStatistics),
 }
@@ -31,6 +33,10 @@ impl Statistics {
 
     pub fn unwrap_long(&self) -> &LongStatistics { 
         if let Statistics::Long(x) = self { x } else { panic!("invalid argument to unwrap_long"); }
+    }
+
+    pub fn unwrap_decimal64(&self) -> &Decimal64Statistics { 
+        if let Statistics::Decimal64(x) = self { x } else { panic!("invalid argument to unwrap_decimal64"); }
     }
 
     pub fn unwrap_string(&self) -> &StringStatistics { 
@@ -62,6 +68,13 @@ impl Statistics {
                 if let Some(x) = long_statistics.sum { int_stat.set_sum(x); }
                 stat.set_intStatistics(int_stat);
             }
+            Statistics::Decimal64(d) => {
+                let mut dec_stat = orc_proto::DecimalStatistics::new();
+                if let Some(x) = d.min { dec_stat.set_minimum(d.format(x)); }
+                if let Some(x) = d.max { dec_stat.set_maximum(d.format(x)); }
+                if let Some(x) = d.sum { dec_stat.set_sum(d.format(x)); }
+                stat.set_decimalStatistics(dec_stat);
+            }
             Statistics::Double(double_statistics) => {
                 let mut double_stat = orc_proto::DoubleStatistics::new();
                 if let Some(x) = double_statistics.min { double_stat.set_minimum(x); }
@@ -76,7 +89,7 @@ impl Statistics {
                 str_stat.set_sum(string_statistics.sum_lengths as i64);
                 stat.set_stringStatistics(str_stat);
             }
-            Statistics::Struct(struct_statistics) => {}
+            Statistics::Struct(_s) => {}
         }
         stat
     }
@@ -88,6 +101,7 @@ impl BaseStatistics for Statistics {
             Statistics::Boolean(x) => x.num_values(),
             Statistics::Long(x) => x.num_values(),
             Statistics::Double(x) => x.num_values(),
+            Statistics::Decimal64(x) => x.num_values(),
             Statistics::String(x) => x.num_values(),
             Statistics::Struct(x) => x.num_values(),
         }
@@ -98,6 +112,7 @@ impl BaseStatistics for Statistics {
             Statistics::Boolean(x) => x.num_present(),
             Statistics::Long(x) => x.num_present(),
             Statistics::Double(x) => x.num_present(),
+            Statistics::Decimal64(x) => x.num_present(),
             Statistics::String(x) => x.num_present(),
             Statistics::Struct(x) => x.num_present(),
         }
@@ -108,6 +123,7 @@ impl BaseStatistics for Statistics {
             Statistics::Boolean(x) => x.merge(rhs.unwrap_boolean()),
             Statistics::Long(x) => x.merge(rhs.unwrap_long()),
             Statistics::Double(x) => x.merge(rhs.unwrap_double()),
+            Statistics::Decimal64(x) => x.merge(rhs.unwrap_decimal64()),
             Statistics::String(x) => x.merge(rhs.unwrap_string()),
             Statistics::Struct(x) => x.merge(rhs.unwrap_struct()),
         }

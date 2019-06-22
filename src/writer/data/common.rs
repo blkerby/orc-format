@@ -1,11 +1,13 @@
 use std::io::{Write, Result};
 
-use crate::writer::count_write::CountWrite;
 use crate::protos::orc_proto;
+use crate::schema::Schema;
+use crate::writer::count_write::CountWrite;
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::Statistics;
 
 pub trait BaseData<'a> {
+    fn schema(&self) -> &'a Schema;
     fn column_id(&self) -> u32;
     fn write_index_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()>;
     fn write_data_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()>;

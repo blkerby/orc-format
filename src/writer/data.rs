@@ -12,6 +12,7 @@ pub use boolean::BooleanData;
 pub use long::LongData;
 pub use float::FloatData;
 pub use double::DoubleData;
+pub use decimal64::Decimal64Data;
 pub use string::StringData;
 pub use struct_::StructData;
 
@@ -20,6 +21,7 @@ mod boolean;
 mod long;
 mod float;
 mod double;
+mod decimal64;
 mod string;
 mod struct_;
 
@@ -28,6 +30,7 @@ pub enum Data<'a> {
     Long(LongData<'a>),
     Float(FloatData<'a>),
     Double(DoubleData<'a>),
+    Decimal64(Decimal64Data<'a>),
     String(StringData<'a>),
     Struct(StructData<'a>),
 }
@@ -40,8 +43,9 @@ impl<'a> Data<'a> {
                 Data::Long(LongData::new(schema, config, column_id)),
             Schema::Float => Data::Float(FloatData::new(schema, config, column_id)),
             Schema::Double => Data::Double(DoubleData::new(schema, config, column_id)),
+            Schema::Decimal(_, _) => Data::Decimal64(Decimal64Data::new(schema, config, column_id)),
             Schema::String => Data::String(StringData::new(schema, config, column_id)),
-            Schema::Struct(fields) => Data::Struct(StructData::new(fields, config, column_id)),
+            Schema::Struct(_) => Data::Struct(StructData::new(schema, config, column_id)),
         }
     }
 
@@ -61,6 +65,10 @@ impl<'a> Data<'a> {
         if let Data::Double(x) = self { x } else { unreachable!() }
     }
 
+    pub fn unwrap_decimal64(&mut self) -> &mut Decimal64Data<'a> {
+        if let Data::Decimal64(x) = self { x } else { unreachable!() }
+    }
+
     pub fn unwrap_string(&mut self) -> &mut StringData<'a> {
         if let Data::String(x) = self { x } else { unreachable!() }
     }
@@ -72,12 +80,25 @@ impl<'a> Data<'a> {
 
 // We could use `enum_dispatch` to autogenerate this boilerplate, but unfortunately it doesn't work with RLS.
 impl<'a> BaseData<'a> for Data<'a> {
+    fn schema(&self) -> &'a Schema {
+        match self {
+            Data::Boolean(x) => x.schema(),
+            Data::Long(x) => x.schema(),
+            Data::Float(x) => x.schema(),
+            Data::Double(x) => x.schema(),
+            Data::Decimal64(x) => x.schema(),
+            Data::String(x) => x.schema(),
+            Data::Struct(x) => x.schema(),
+        }
+    }
+
     fn column_id(&self) -> u32 {
         match self {
             Data::Boolean(x) => x.column_id(),
             Data::Long(x) => x.column_id(),
             Data::Float(x) => x.column_id(),
             Data::Double(x) => x.column_id(),
+            Data::Decimal64(x) => x.column_id(),
             Data::String(x) => x.column_id(),
             Data::Struct(x) => x.column_id(),
         }
@@ -89,6 +110,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Long(x) => x.write_index_streams(out, stream_infos_out),
             Data::Float(x) => x.write_index_streams(out, stream_infos_out),
             Data::Double(x) => x.write_index_streams(out, stream_infos_out),
+            Data::Decimal64(x) => x.write_index_streams(out, stream_infos_out),
             Data::String(x) => x.write_index_streams(out, stream_infos_out),
             Data::Struct(x) => x.write_index_streams(out, stream_infos_out),
         }
@@ -100,6 +122,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Long(x) => x.write_data_streams(out, stream_infos_out),
             Data::Float(x) => x.write_data_streams(out, stream_infos_out),
             Data::Double(x) => x.write_data_streams(out, stream_infos_out),
+            Data::Decimal64(x) => x.write_data_streams(out, stream_infos_out),
             Data::String(x) => x.write_data_streams(out, stream_infos_out),
             Data::Struct(x) => x.write_data_streams(out, stream_infos_out),
         }
@@ -111,6 +134,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Long(x) => x.column_encodings(out),
             Data::Float(x) => x.column_encodings(out),
             Data::Double(x) => x.column_encodings(out),
+            Data::Decimal64(x) => x.column_encodings(out),
             Data::String(x) => x.column_encodings(out),
             Data::Struct(x) => x.column_encodings(out),
         }
@@ -122,6 +146,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Long(x) => x.statistics(out),
             Data::Float(x) => x.statistics(out),
             Data::Double(x) => x.statistics(out),
+            Data::Decimal64(x) => x.statistics(out),
             Data::String(x) => x.statistics(out),
             Data::Struct(x) => x.statistics(out),
         }
@@ -133,6 +158,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Long(x) => x.verify_row_count(row_count),
             Data::Float(x) => x.verify_row_count(row_count),
             Data::Double(x) => x.verify_row_count(row_count),
+            Data::Decimal64(x) => x.verify_row_count(row_count),
             Data::String(x) => x.verify_row_count(row_count),
             Data::Struct(x) => x.verify_row_count(row_count),
         }
@@ -144,6 +170,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Long(x) => x.estimated_size(),
             Data::Float(x) => x.estimated_size(),
             Data::Double(x) => x.estimated_size(),
+            Data::Decimal64(x) => x.estimated_size(),
             Data::String(x) => x.estimated_size(),
             Data::Struct(x) => x.estimated_size(),
         }
@@ -155,6 +182,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Long(x) => x.reset(),
             Data::Float(x) => x.reset(),
             Data::Double(x) => x.reset(),
+            Data::Decimal64(x) => x.reset(),
             Data::String(x) => x.reset(),
             Data::Struct(x) => x.reset(),
         }
