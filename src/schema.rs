@@ -11,5 +11,6 @@ pub enum Schema {
     Decimal(u32, u32),
     String,
     Struct(Vec<Field>),
-    List(Box<Schema>)
+    List(Box<Schema>),
+    Map(Box<Schema>, Box<Schema>),
 }

@@ -207,6 +207,13 @@ impl<'a, W: Write> Writer<'a, W> {
                 types.push(t);
                 Self::make_types(&d.child, types);
             }
+            Data::Map(d) => {
+                t.set_kind(orc_proto::Type_Kind::MAP);
+                t.set_subtypes(vec![d.keys.column_id(), d.values.column_id()]);
+                types.push(t);
+                Self::make_types(&d.keys, types);
+                Self::make_types(&d.values, types);
+            }
         }
     }
 

@@ -15,6 +15,7 @@ fn main() -> Result<()> {
         Field("d".to_owned(), Schema::Boolean),
         Field("e".to_owned(), Schema::Decimal(15, 2)),
         Field("f".to_owned(), Schema::List(Box::new(Schema::Long))),
+        Field("g".to_owned(), Schema::Map(Box::new(Schema::String), Box::new(Schema::Boolean))),
     ]);
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
@@ -68,6 +69,22 @@ fn main() -> Result<()> {
         }
         for j in 0..batch_size {
             f.write(Some(j as u64));
+        }
+        
+        let g = root.child(9).unwrap_map();
+        let (gkey, gval) = g.children();
+        let gkey_s = gkey.unwrap_string();
+        let gval_b = gval.unwrap_boolean();
+        for _ in 0..batch_size {
+            gkey_s.write(Some("param"));
+            gkey_s.write(Some("setting"));
+        }
+        for j in 0..batch_size {
+            gval_b.write(Some((j % 2) != 0));
+            gval_b.write(Some(((j + 1) % 2) != 0));
+        }
+        for _ in 0..batch_size {
+            g.write(Some(2));
         }
 
         for _ in 0..batch_size {
