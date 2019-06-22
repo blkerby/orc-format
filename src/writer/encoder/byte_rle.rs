@@ -63,7 +63,7 @@ impl ByteRLE {
         }
     }
 
-    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> {
+    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<()> {
         self.finish_group();
         self.sink.finish(w)
     }

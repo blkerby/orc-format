@@ -30,7 +30,7 @@ impl BooleanRLE {
         }
     }
 
-    pub fn finish<W: Write>(&mut self, out: &mut W) -> Result<u64> {
+    pub fn finish<W: Write>(&mut self, out: &mut W) -> Result<()> {
         if self.cnt > 0 {
             self.byte_rle.write(self.buf << (8 - self.cnt));
         }

@@ -13,6 +13,7 @@ mod long;
 mod struct_;
 mod string;
 mod double;
+mod decimal64;
 
 #[derive(Debug, Clone)]
 pub enum Statistics {

@@ -72,7 +72,7 @@ impl<T: VarInt> IntRLEv1<T> {
         }
     }
 
-    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> {
+    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<()> {
         self.finish_group();
         self.sink.finish(w)
     }
@@ -94,7 +94,7 @@ impl SignedIntRLEv1 {
         self.0.write(x);
     }
 
-    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> {
+    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<()> {
         self.0.finish(w)
     }
 
@@ -115,7 +115,7 @@ impl UnsignedIntRLEv1 {
         self.0.write(x);
     }
 
-    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<u64> {
+    pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<()> {
         self.0.finish(w)
     }
 

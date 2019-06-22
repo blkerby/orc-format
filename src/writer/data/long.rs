@@ -3,11 +3,11 @@ use std::io::{Write, Result};
 use crate::protos::orc_proto;
 use crate::schema::Schema;
 use crate::writer::Config;
+use crate::writer::count_write::CountWrite;
 use crate::writer::encoder::{BooleanRLE, SignedIntRLEv1};
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, LongStatistics};
 use crate::writer::data::common::BaseData;
-
 
 
 pub struct LongData<'a> {
@@ -48,29 +48,32 @@ impl<'a> LongData<'a> {
 impl<'a> BaseData<'a> for LongData<'a> {
     fn column_id(&self) -> u32 { self.column_id }
 
-    fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
-        Ok(0)
+    fn write_index_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
+        Ok(())
     }
 
-    fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
-        let mut total_len = 0;
+    fn write_data_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
         if self.stripe_stats.has_null() {
-            let present_len = self.present.finish(out)?;
+            let present_start_pos = out.pos();
+            self.present.finish(out)?;
+            let present_len = (out.pos() - present_start_pos) as u64;
             stream_infos_out.push(StreamInfo {
                 kind: orc_proto::Stream_Kind::PRESENT,
                 column_id: self.column_id,
-                length: present_len as u64,
+                length: present_len,
             });
-            total_len += present_len;
         }
-        let data_len = self.data.finish(out)?;
+
+        let data_start_pos = out.pos();
+        self.data.finish(out)?;
+        let data_len = (out.pos() - data_start_pos) as u64;
         stream_infos_out.push(StreamInfo {
             kind: orc_proto::Stream_Kind::DATA,
             column_id: self.column_id,
-            length: data_len as u64,
+            length: data_len,
         });
-        total_len += data_len;
-        Ok(total_len)
+
+        Ok(())
     }
 
     fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>) {

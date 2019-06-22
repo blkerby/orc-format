@@ -5,6 +5,7 @@ use crate::schema::Schema;
 use super::Config;
 use super::stripe::StreamInfo;
 use super::statistics::Statistics;
+use crate::writer::count_write::CountWrite;
 
 pub use common::BaseData;
 pub use boolean::BooleanData;
@@ -82,7 +83,7 @@ impl<'a> BaseData<'a> for Data<'a> {
         }
     }
 
-    fn write_index_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
+    fn write_index_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
         match self {
             Data::Boolean(x) => x.write_index_streams(out, stream_infos_out),
             Data::Long(x) => x.write_index_streams(out, stream_infos_out),
@@ -93,7 +94,7 @@ impl<'a> BaseData<'a> for Data<'a> {
         }
     }
 
-    fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
+    fn write_data_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
         match self {
             Data::Boolean(x) => x.write_data_streams(out, stream_infos_out),
             Data::Long(x) => x.write_data_streams(out, stream_infos_out),

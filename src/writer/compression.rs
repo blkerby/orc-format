@@ -145,26 +145,21 @@ impl CompressionStream {
         }
     }
 
-    pub fn finish<W: Write>(&mut self, out: &mut W) -> Result<u64> {
+    pub fn finish<W: Write>(&mut self, out: &mut W) -> Result<()> {
         if let Some(_) = &self.compressor {
             self.finish_block();
             let mut i = 0;
-            let mut size = 0;
             for info in &self.output_block_info {
                 let header = info.length * 2 + (info.is_original as usize);
                 out.write_u24::<LittleEndian>(header as u32)?;
                 out.write_all(&self.output[i..(i + info.length)])?;
                 i += info.length;
-                size += info.length + 3;
             }
-            println!("Compressed size: {}", size);
-            Ok(size as u64)
+            Ok(())
         } else {
-            println!("Uncompressed buf len: {}", self.buf.len());
             out.write_all(&self.buf)?;
-            let len = self.buf.len();
             self.buf.resize(0);
-            Ok(len as u64)
+            Ok(())
         }
     }
 

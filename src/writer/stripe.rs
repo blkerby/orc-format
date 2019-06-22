@@ -4,6 +4,7 @@ use protobuf::{CodedOutputStream, RepeatedField, Message};
 use crate::protos::orc_proto;
 use crate::schema::Schema;
 
+use super::count_write::CountWrite;
 use super::Config;
 use super::data::{Data, BaseData};
 use super::statistics::Statistics;
@@ -49,7 +50,7 @@ impl<'a> Stripe<'a> {
         Ok(())
     }
 
-    fn write_footer<W: Write>(&mut self, out: &mut W, stream_infos: &[StreamInfo]) -> Result<u64> {
+    fn write_footer<W: Write>(&mut self, out: &mut W, stream_infos: &[StreamInfo]) -> Result<()> {
         let mut compressed_stream = CompressionStream::new(&self.config.compression);
         let mut coded_out = CodedOutputStream::new(&mut compressed_stream);
         let mut footer = orc_proto::StripeFooter::new();
@@ -70,18 +71,29 @@ impl<'a> Stripe<'a> {
 
         footer.write_to(&mut coded_out)?;
         coded_out.flush()?;
-        let size = compressed_stream.finish(out)?;
-        Ok(size as u64)
+        compressed_stream.finish(out)?;
+        Ok(())
     }
 
-    pub fn finish<W: Write>(&mut self, out: &mut W, stripe_infos_out: &mut Vec<StripeInfo>) -> Result<()> {
+    pub fn finish<W: Write>(&mut self, out: &mut CountWrite<W>, stripe_infos_out: &mut Vec<StripeInfo>) -> Result<()> {
         if self.num_rows == 0 { return Ok(()) }
         let mut stream_infos: Vec<StreamInfo> = Vec::new();
         let mut statistics: Vec<Statistics> = Vec::new();
         self.data.statistics(&mut statistics);
-        let index_length = self.data.write_index_streams(out, &mut stream_infos)?;
-        let data_length = self.data.write_data_streams(out, &mut stream_infos)?;
-        let footer_length = self.write_footer(out, &stream_infos)?;
+
+        let index_start_pos = out.pos();
+        self.data.write_index_streams(out, &mut stream_infos)?;
+
+        let data_start_pos = out.pos();
+        self.data.write_data_streams(out, &mut stream_infos)?;
+        
+        let footer_start_pos = out.pos();
+        self.write_footer(out, &stream_infos)?;
+
+        let end_pos = out.pos();
+        let index_length = (data_start_pos - index_start_pos) as u64;
+        let data_length = (footer_start_pos - data_start_pos) as u64;
+        let footer_length = (end_pos - footer_start_pos) as u64;
         stripe_infos_out.push(StripeInfo {
             offset: self.offset,
             num_rows: self.num_rows,

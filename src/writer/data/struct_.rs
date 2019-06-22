@@ -3,6 +3,7 @@ use std::io::{Write, Result};
 use crate::protos::orc_proto;
 use crate::schema::Field;
 use crate::writer::Config;
+use crate::writer::count_write::CountWrite;
 use crate::writer::encoder::BooleanRLE;
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, StructStatistics};
@@ -59,30 +60,27 @@ impl<'a> StructData<'a> {
 impl<'a> BaseData<'a> for StructData<'a> {
     fn column_id(&self) -> u32 { self.column_id }
 
-    fn write_index_streams<W: Write>(&mut self, _out: &mut W, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
-        Ok(0)
+    fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
+        Ok(())
     }
 
-    fn write_data_streams<W: Write>(&mut self, out: &mut W, stream_infos_out: &mut Vec<StreamInfo>) -> Result<u64> {
-        let mut total_len = 0;
-
+    fn write_data_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
         if self.stripe_stats.has_null() {
-            let present_len = self.present.finish(out)?;
+            let present_start_pos = out.pos();
+            self.present.finish(out)?;
+            let present_len = (out.pos() - present_start_pos) as u64;
             stream_infos_out.push(StreamInfo {
                 kind: orc_proto::Stream_Kind::PRESENT,
                 column_id: self.column_id,
-                length: present_len as u64,
+                length: present_len,
             });
-            total_len += present_len;
         }
         
-        let mut children_len = 0;
         for child in &mut self.children {
-            children_len += child.write_data_streams(out, stream_infos_out)?;
+            child.write_data_streams(out, stream_infos_out)?;
         }
-        total_len += children_len;
 
-        Ok(total_len)
+        Ok(())
     }
 
     fn column_encodings(&self, out: &mut Vec<orc_proto::ColumnEncoding>) {

@@ -4,6 +4,7 @@ use protobuf::{CodedOutputStream, Message, RepeatedField};
 use std::io::{Result, Write};
 use std::slice;
 
+use count_write::CountWrite;
 use statistics::{BaseStatistics, Statistics};
 use stripe::{Stripe, StripeInfo};
 
@@ -16,6 +17,7 @@ mod stripe;
 mod data;
 mod encoder;
 mod statistics;
+mod count_write;
 
 
 pub struct Config {
@@ -52,7 +54,7 @@ impl Config {
 
 #[must_use]
 pub struct Writer<'a, W: Write> {
-    inner: W,
+    inner: CountWrite<W>,
     config: &'a Config,
     current_stripe: Stripe<'a>,
     stripe_infos: Vec<StripeInfo>,
@@ -61,9 +63,9 @@ pub struct Writer<'a, W: Write> {
 impl<'a, W: Write> Writer<'a, W> {
     const HEADER_LENGTH: u64 = 3;
 
-    pub fn new(inner: W, schema: &'a Schema, config: &'a Config) -> Result<Writer<'a, W>> {
-        let mut writer = Writer {
-            inner,
+    pub fn new(inner: W, schema: &'a Schema, config: &'a Config) -> Result<Self> {
+        let mut writer = Self {
+            inner: CountWrite::new(inner),
             config,
             current_stripe: Stripe::new(&schema, &config),
             stripe_infos: Vec::new(),
@@ -84,15 +86,28 @@ impl<'a, W: Write> Writer<'a, W> {
         Ok(())
     }
 
-    pub fn finish(mut self) -> Result<()> {
+    pub fn finish(mut self) -> Result<W> {
         self.current_stripe
             .finish(&mut self.inner, &mut self.stripe_infos)?;
         let content_length = self.current_stripe.offset - Self::HEADER_LENGTH;
-        let metadata_length = self.write_metadata()?;
-        let footer_length = self.write_footer(content_length)?;
+
+        let metadata_start_pos = self.inner.pos();
+        self.write_metadata()?;
+
+        let footer_start_pos = self.inner.pos();
+        self.write_footer(content_length)?;
+
+        let postscript_start_pos = self.inner.pos();
+        let metadata_length = (footer_start_pos - metadata_start_pos) as u64;
+        let footer_length = (postscript_start_pos - footer_start_pos) as u64;
         self.write_postscript(metadata_length, footer_length)?;
+
+        let end_pos = self.inner.pos();
+        let postscript_length = (end_pos - postscript_start_pos) as u8;
+        self.inner.write(slice::from_ref(&postscript_length))?;
+
         self.inner.flush()?;
-        Ok(())
+        Ok(self.inner.into_inner())
     }
 
     fn write_header(&mut self) -> Result<()> {
@@ -111,7 +126,7 @@ impl<'a, W: Write> Writer<'a, W> {
         statistics
     }
 
-    fn write_metadata(&mut self) -> Result<u64> {
+    fn write_metadata(&mut self) -> Result<()> {
         let mut compression_stream = CompressionStream::new(&self.config.compression);
         let mut coded_out = CodedOutputStream::new(&mut compression_stream);
         let mut metadata = orc_proto::Metadata::new();
@@ -128,8 +143,8 @@ impl<'a, W: Write> Writer<'a, W> {
         metadata.set_stripeStats(RepeatedField::from_vec(stripe_statistics));
         metadata.write_to(&mut coded_out)?;
         coded_out.flush()?;
-        let size = compression_stream.finish(&mut self.inner)?;
-        Ok(size as u64)
+        compression_stream.finish(&mut self.inner)?;
+        Ok(())
     }
 
     fn make_types(data: &Data<'a>, types: &mut Vec<orc_proto::Type>) {
@@ -183,7 +198,7 @@ impl<'a, W: Write> Writer<'a, W> {
         }
     }
 
-    fn write_footer(&mut self, content_length: u64) -> Result<u64> {
+    fn write_footer(&mut self, content_length: u64) -> Result<()> {
         let mut compression_stream = CompressionStream::new(&self.config.compression);
         let stats: Vec<_> = self
             .merge_statistics()
@@ -218,8 +233,8 @@ impl<'a, W: Write> Writer<'a, W> {
 
         footer.write_to(&mut coded_out)?;
         coded_out.flush()?;
-        let size = compression_stream.finish(&mut self.inner)?;
-        Ok(size as u64)
+        compression_stream.finish(&mut self.inner)?;
+        Ok(())
     }
 
     fn write_postscript(&mut self, metadata_length: u64, footer_length: u64) -> Result<()> {
@@ -234,9 +249,6 @@ impl<'a, W: Write> Writer<'a, W> {
         postscript.set_magic("ORC".to_owned());
         postscript.write_to(&mut coded_out)?;
         coded_out.flush()?;
-
-        let size = postscript.compute_size() as u8;
-        self.inner.write(slice::from_ref(&size))?;
         Ok(())
     }
 }
