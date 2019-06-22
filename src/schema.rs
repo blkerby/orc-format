@@ -11,7 +11,10 @@ pub enum Schema {
     Timestamp,
     Decimal(u32, u32),
     String,
+    Char(u32),
+    VarChar(u32),
     Struct(Vec<Field>),
     List(Box<Schema>),
     Map(Box<Schema>, Box<Schema>),
+    Union(Vec<Schema>),
 }

@@ -182,8 +182,21 @@ impl<'a, W: Write> Writer<'a, W> {
                 t.set_scale(d.scale());
                 types.push(t);
             }
-            Data::String(_) => {
-                t.set_kind(orc_proto::Type_Kind::STRING);
+            Data::String(d) => {
+                match d.schema() {
+                    Schema::String => {
+                        t.set_kind(orc_proto::Type_Kind::STRING);
+                    }
+                    Schema::Char(n) => {
+                        t.set_kind(orc_proto::Type_Kind::CHAR);
+                        t.set_maximumLength(*n);
+                    }
+                    Schema::VarChar(n) => {
+                        t.set_kind(orc_proto::Type_Kind::VARCHAR);
+                        t.set_maximumLength(*n);
+                    }
+                    _ => unreachable!()
+                }
                 types.push(t);
             }
             Data::Struct(struct_data) => {
@@ -203,6 +216,18 @@ impl<'a, W: Write> Writer<'a, W> {
                 types.push(t);
                 for d in &struct_data.children {
                     Self::make_types(d, types);
+                }
+            }
+            Data::Union(d) => {
+                t.set_kind(orc_proto::Type_Kind::UNION);
+                let mut subtypes: Vec<u32> = Vec::new();
+                for e in &d.children {
+                    subtypes.push(e.column_id());
+                }
+                t.set_subtypes(subtypes);
+                types.push(t);
+                for e in &d.children {
+                    Self::make_types(e, types);
                 }
             }
             Data::List(d) => {

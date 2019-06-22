@@ -17,6 +17,7 @@ fn main() -> Result<()> {
         Field("f".to_owned(), Schema::List(Box::new(Schema::Long))),
         Field("g".to_owned(), Schema::Map(Box::new(Schema::String), Box::new(Schema::Boolean))),
         Field("h".to_owned(), Schema::Timestamp),
+        Field("i".to_owned(), Schema::Union(vec![Schema::Long, Schema::Float])),
     ]);
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
@@ -91,6 +92,17 @@ fn main() -> Result<()> {
         let h = root.child(10).unwrap_timestamp();
         for j in 0..batch_size {
             h.write_nanos(j, 10u32.pow((j % 9) as u32));
+        }
+
+        let i = root.child(11).unwrap_union();
+        for j in 0..batch_size {
+            if j % 2 == 0 {
+                i.child(0).unwrap_long().write(Some(j));
+                i.write(true, 0);
+            } else {
+                i.child(1).unwrap_float().write(Some(j as f32));
+                i.write(true, 1);
+            }
         }
 
         for _ in 0..batch_size {

@@ -20,7 +20,7 @@ pub struct TimestampData<'a> {
 }
 
 impl<'a> TimestampData<'a> {
-    // Number of seconds between UNIX epoch and the ORC timestamp origin (2015-01-01)
+    /// Number of seconds between UNIX epoch and the ORC timestamp origin (2015-01-01)
     pub const EPOCH_SECONDS: i64 = -1420070400; 
 
     pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {

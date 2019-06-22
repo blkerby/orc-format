@@ -18,6 +18,7 @@ pub use string::StringData;
 pub use struct_::StructData;
 pub use list::ListData;
 pub use map::MapData;
+pub use union::UnionData;
 
 mod common;
 mod boolean;
@@ -30,6 +31,7 @@ mod string;
 mod struct_;
 mod list;
 mod map;
+mod union;
 
 pub enum Data<'a> {
     Boolean(BooleanData<'a>),
@@ -42,6 +44,7 @@ pub enum Data<'a> {
     List(ListData<'a>),
     Struct(StructData<'a>),
     Map(MapData<'a>),
+    Union(UnionData<'a>),
 }
 
 impl<'a> Data<'a> {
@@ -54,10 +57,12 @@ impl<'a> Data<'a> {
             Schema::Double => Data::Double(DoubleData::new(schema, config, column_id)),
             Schema::Timestamp => Data::Timestamp(TimestampData::new(schema, config, column_id)),
             Schema::Decimal(_, _) => Data::Decimal64(Decimal64Data::new(schema, config, column_id)),
-            Schema::String => Data::String(StringData::new(schema, config, column_id)),
+            Schema::String | Schema::VarChar(_) | Schema::Char(_) => 
+                Data::String(StringData::new(schema, config, column_id)),
             Schema::Struct(_) => Data::Struct(StructData::new(schema, config, column_id)),
             Schema::List(_) => Data::List(ListData::new(schema, config, column_id)),
             Schema::Map(_, _) => Data::Map(MapData::new(schema, config, column_id)),
+            Schema::Union(_) => Data::Union(UnionData::new(schema, config, column_id)),
         }
     }
 
@@ -100,6 +105,10 @@ impl<'a> Data<'a> {
     pub fn unwrap_map(&mut self) -> &mut MapData<'a> {
         if let Data::Map(x) = self { x } else { unreachable!() }
     }
+
+    pub fn unwrap_union(&mut self) -> &mut UnionData<'a> {
+        if let Data::Union(x) = self { x } else { unreachable!() }
+    }
 }
 
 // We could use `enum_dispatch` to autogenerate this boilerplate, but unfortunately it doesn't work with RLS.
@@ -116,6 +125,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Struct(x) => x.schema(),
             Data::List(x) => x.schema(),
             Data::Map(x) => x.schema(),
+            Data::Union(x) => x.schema(),
         }
     }
 
@@ -131,6 +141,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Struct(x) => x.column_id(),
             Data::List(x) => x.column_id(),
             Data::Map(x) => x.column_id(),
+            Data::Union(x) => x.column_id(),
         }
     }
 
@@ -146,6 +157,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Struct(x) => x.write_index_streams(out, stream_infos_out),
             Data::List(x) => x.write_index_streams(out, stream_infos_out),
             Data::Map(x) => x.write_index_streams(out, stream_infos_out),
+            Data::Union(x) => x.write_index_streams(out, stream_infos_out),
         }
     }
 
@@ -161,6 +173,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Struct(x) => x.write_data_streams(out, stream_infos_out),
             Data::List(x) => x.write_data_streams(out, stream_infos_out),
             Data::Map(x) => x.write_data_streams(out, stream_infos_out),
+            Data::Union(x) => x.write_data_streams(out, stream_infos_out),
         }
     }
 
@@ -176,6 +189,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Struct(x) => x.column_encodings(out),
             Data::List(x) => x.column_encodings(out),
             Data::Map(x) => x.column_encodings(out),
+            Data::Union(x) => x.column_encodings(out),
         }
     }
 
@@ -191,6 +205,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Struct(x) => x.statistics(out),
             Data::List(x) => x.statistics(out),
             Data::Map(x) => x.statistics(out),
+            Data::Union(x) => x.statistics(out),
         }
     }
 
@@ -206,6 +221,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Struct(x) => x.verify_row_count(row_count),
             Data::List(x) => x.verify_row_count(row_count),
             Data::Map(x) => x.verify_row_count(row_count),
+            Data::Union(x) => x.verify_row_count(row_count),
         }
     }
 
@@ -221,6 +237,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Struct(x) => x.estimated_size(),
             Data::List(x) => x.estimated_size(),
             Data::Map(x) => x.estimated_size(),
+            Data::Union(x) => x.estimated_size(),
         }
     }
 
@@ -236,6 +253,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Struct(x) => x.reset(),
             Data::List(x) => x.reset(),
             Data::Map(x) => x.reset(),
+            Data::Union(x) => x.reset(),
         }
     }
 }
