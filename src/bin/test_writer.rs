@@ -13,12 +13,13 @@ fn main() -> Result<()> {
         Field("b".to_owned(), Schema::Float),
         Field("c".to_owned(), Schema::Date),
         Field("d".to_owned(), Schema::Boolean),
-        Field("e".to_owned(), Schema::Decimal(15,3)),
+        Field("e".to_owned(), Schema::Decimal(15, 2)),
+        Field("f".to_owned(), Schema::List(Box::new(Schema::Long))),
     ]);
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
     let mut out = File::create("target/test.orc")?;
-    let config = Config::new();//.with_compression(SnappyCompression::new().build());
+    let config = Config::new().with_compression(SnappyCompression::new().build());
     let mut writer = Writer::new(&mut out, &schema, &config)?;
     let batch_size: i64 = 10;
     for n in 0..1 {
@@ -58,7 +59,15 @@ fn main() -> Result<()> {
         }
         let e = root.child(7).unwrap_decimal64();
         for j in 0..batch_size {
-            e.write(Some(j))// - batch_size / 2));
+            e.write(Some(j - batch_size / 2));
+        }
+        let f = root.child(8).unwrap_list();
+        let f1 = f.child().unwrap_long();
+        for j in 0..(batch_size * (batch_size - 1) / 2) {
+            f1.write(Some(j));
+        }
+        for j in 0..batch_size {
+            f.write(Some(j as u64));
         }
 
         for _ in 0..batch_size {

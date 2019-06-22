@@ -1,9 +1,9 @@
 use crate::protos::orc_proto;
 
 pub use common::BaseStatistics;
+pub use generic::GenericStatistics;
 pub use boolean::BooleanStatistics;
 pub use long::LongStatistics;
-pub use struct_::StructStatistics;
 pub use string::StringStatistics;
 pub use double::DoubleStatistics;
 pub use decimal64::Decimal64Statistics;
@@ -11,7 +11,7 @@ pub use decimal64::Decimal64Statistics;
 mod common;
 mod boolean;
 mod long;
-mod struct_;
+mod generic;
 mod string;
 mod double;
 mod decimal64;
@@ -23,7 +23,7 @@ pub enum Statistics {
     Double(DoubleStatistics),
     Decimal64(Decimal64Statistics),
     String(StringStatistics),
-    Struct(StructStatistics),
+    Generic(GenericStatistics),
 }
 
 impl Statistics {
@@ -47,8 +47,8 @@ impl Statistics {
         if let Statistics::Double(x) = self { x } else { panic!("invalid argument to unwrap_double"); }
     }
 
-    pub fn unwrap_struct(&self) -> &StructStatistics { 
-        if let Statistics::Struct(x) = self { x } else { panic!("invalid argument to unwrap_struct"); }
+    pub fn unwrap_generic(&self) -> &GenericStatistics { 
+        if let Statistics::Generic(x) = self { x } else { panic!("invalid argument to unwrap_struct"); }
     }
 
     pub fn to_proto(&self) -> orc_proto::ColumnStatistics {
@@ -89,7 +89,7 @@ impl Statistics {
                 str_stat.set_sum(string_statistics.sum_lengths as i64);
                 stat.set_stringStatistics(str_stat);
             }
-            Statistics::Struct(_s) => {}
+            Statistics::Generic(_) => {}
         }
         stat
     }
@@ -103,7 +103,7 @@ impl BaseStatistics for Statistics {
             Statistics::Double(x) => x.num_values(),
             Statistics::Decimal64(x) => x.num_values(),
             Statistics::String(x) => x.num_values(),
-            Statistics::Struct(x) => x.num_values(),
+            Statistics::Generic(x) => x.num_values(),
         }
     }
 
@@ -114,7 +114,7 @@ impl BaseStatistics for Statistics {
             Statistics::Double(x) => x.num_present(),
             Statistics::Decimal64(x) => x.num_present(),
             Statistics::String(x) => x.num_present(),
-            Statistics::Struct(x) => x.num_present(),
+            Statistics::Generic(x) => x.num_present(),
         }
     }
 
@@ -125,7 +125,7 @@ impl BaseStatistics for Statistics {
             Statistics::Double(x) => x.merge(rhs.unwrap_double()),
             Statistics::Decimal64(x) => x.merge(rhs.unwrap_decimal64()),
             Statistics::String(x) => x.merge(rhs.unwrap_string()),
-            Statistics::Struct(x) => x.merge(rhs.unwrap_struct()),
+            Statistics::Generic(x) => x.merge(rhs.unwrap_generic()),
         }
     }
 }

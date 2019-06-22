@@ -15,6 +15,7 @@ pub use double::DoubleData;
 pub use decimal64::Decimal64Data;
 pub use string::StringData;
 pub use struct_::StructData;
+pub use list::ListData;
 
 mod common;
 mod boolean;
@@ -24,6 +25,7 @@ mod double;
 mod decimal64;
 mod string;
 mod struct_;
+mod list;
 
 pub enum Data<'a> {
     Boolean(BooleanData<'a>),
@@ -32,6 +34,7 @@ pub enum Data<'a> {
     Double(DoubleData<'a>),
     Decimal64(Decimal64Data<'a>),
     String(StringData<'a>),
+    List(ListData<'a>),
     Struct(StructData<'a>),
 }
 
@@ -46,6 +49,7 @@ impl<'a> Data<'a> {
             Schema::Decimal(_, _) => Data::Decimal64(Decimal64Data::new(schema, config, column_id)),
             Schema::String => Data::String(StringData::new(schema, config, column_id)),
             Schema::Struct(_) => Data::Struct(StructData::new(schema, config, column_id)),
+            Schema::List(_) => Data::List(ListData::new(schema, config, column_id)),
         }
     }
 
@@ -76,6 +80,10 @@ impl<'a> Data<'a> {
     pub fn unwrap_struct(&mut self) -> &mut StructData<'a> {
         if let Data::Struct(x) = self { x } else { unreachable!() }
     }
+
+    pub fn unwrap_list(&mut self) -> &mut ListData<'a> {
+        if let Data::List(x) = self { x } else { unreachable!() }
+    }
 }
 
 // We could use `enum_dispatch` to autogenerate this boilerplate, but unfortunately it doesn't work with RLS.
@@ -89,6 +97,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Decimal64(x) => x.schema(),
             Data::String(x) => x.schema(),
             Data::Struct(x) => x.schema(),
+            Data::List(x) => x.schema(),
         }
     }
 
@@ -101,6 +110,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Decimal64(x) => x.column_id(),
             Data::String(x) => x.column_id(),
             Data::Struct(x) => x.column_id(),
+            Data::List(x) => x.column_id(),
         }
     }
 
@@ -113,6 +123,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Decimal64(x) => x.write_index_streams(out, stream_infos_out),
             Data::String(x) => x.write_index_streams(out, stream_infos_out),
             Data::Struct(x) => x.write_index_streams(out, stream_infos_out),
+            Data::List(x) => x.write_index_streams(out, stream_infos_out),
         }
     }
 
@@ -125,6 +136,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Decimal64(x) => x.write_data_streams(out, stream_infos_out),
             Data::String(x) => x.write_data_streams(out, stream_infos_out),
             Data::Struct(x) => x.write_data_streams(out, stream_infos_out),
+            Data::List(x) => x.write_data_streams(out, stream_infos_out),
         }
     }
 
@@ -137,6 +149,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Decimal64(x) => x.column_encodings(out),
             Data::String(x) => x.column_encodings(out),
             Data::Struct(x) => x.column_encodings(out),
+            Data::List(x) => x.column_encodings(out),
         }
     }
 
@@ -149,6 +162,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Decimal64(x) => x.statistics(out),
             Data::String(x) => x.statistics(out),
             Data::Struct(x) => x.statistics(out),
+            Data::List(x) => x.statistics(out),
         }
     }
 
@@ -161,6 +175,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Decimal64(x) => x.verify_row_count(row_count),
             Data::String(x) => x.verify_row_count(row_count),
             Data::Struct(x) => x.verify_row_count(row_count),
+            Data::List(x) => x.verify_row_count(row_count),
         }
     }
 
@@ -173,6 +188,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Decimal64(x) => x.estimated_size(),
             Data::String(x) => x.estimated_size(),
             Data::Struct(x) => x.estimated_size(),
+            Data::List(x) => x.estimated_size(),
         }
     }
 
@@ -185,6 +201,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Decimal64(x) => x.reset(),
             Data::String(x) => x.reset(),
             Data::Struct(x) => x.reset(),
+            Data::List(x) => x.reset(),
         }
     }
 }

@@ -201,6 +201,12 @@ impl<'a, W: Write> Writer<'a, W> {
                     Self::make_types(d, types);
                 }
             }
+            Data::List(d) => {
+                t.set_kind(orc_proto::Type_Kind::LIST);
+                t.set_subtypes(vec![d.child.column_id()]);
+                types.push(t);
+                Self::make_types(&d.child, types);
+            }
         }
     }
 

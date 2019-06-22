@@ -10,5 +10,6 @@ pub enum Schema {
     Double,
     Decimal(u32, u32),
     String,
-    Struct(Vec<Field>)
+    Struct(Vec<Field>),
+    List(Box<Schema>)
 }

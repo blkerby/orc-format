@@ -1,14 +1,14 @@
 use super::common::BaseStatistics;
 
 #[derive(Debug, Copy, Clone)]
-pub struct StructStatistics {
+pub struct GenericStatistics {
     pub num_values: u64,
     pub num_present: u64,
 }
 
-impl StructStatistics {
-    pub fn new() -> StructStatistics {
-        StructStatistics {
+impl GenericStatistics {
+    pub fn new() -> GenericStatistics {
+        GenericStatistics {
             num_values: 0,
             num_present: 0,
         }
@@ -20,7 +20,7 @@ impl StructStatistics {
     }
 }
 
-impl BaseStatistics for StructStatistics {
+impl BaseStatistics for GenericStatistics {
     fn num_values(&self) -> u64 { self.num_values }
 
     fn num_present(&self) -> u64 { self.num_present }
