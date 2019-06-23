@@ -15,6 +15,7 @@ pub use double::DoubleData;
 pub use timestamp::TimestampData;
 pub use decimal64::Decimal64Data;
 pub use string::StringData;
+pub use binary::BinaryData;
 pub use struct_::StructData;
 pub use list::ListData;
 pub use map::MapData;
@@ -28,6 +29,7 @@ mod double;
 mod timestamp;
 mod decimal64;
 mod string;
+mod binary;
 mod struct_;
 mod list;
 mod map;
@@ -41,6 +43,7 @@ pub enum Data<'a> {
     Timestamp(TimestampData<'a>),
     Decimal64(Decimal64Data<'a>),
     String(StringData<'a>),
+    Binary(BinaryData<'a>),
     List(ListData<'a>),
     Struct(StructData<'a>),
     Map(MapData<'a>),
@@ -59,6 +62,7 @@ impl<'a> Data<'a> {
             Schema::Decimal(_, _) => Data::Decimal64(Decimal64Data::new(schema, config, column_id)),
             Schema::String | Schema::VarChar(_) | Schema::Char(_) => 
                 Data::String(StringData::new(schema, config, column_id)),
+            Schema::Binary => Data::Binary(BinaryData::new(schema, config, column_id)),
             Schema::Struct(_) => Data::Struct(StructData::new(schema, config, column_id)),
             Schema::List(_) => Data::List(ListData::new(schema, config, column_id)),
             Schema::Map(_, _) => Data::Map(MapData::new(schema, config, column_id)),
@@ -94,6 +98,10 @@ impl<'a> Data<'a> {
         if let Data::String(x) = self { x } else { unreachable!() }
     }
 
+    pub fn unwrap_binary(&mut self) -> &mut BinaryData<'a> {
+        if let Data::Binary(x) = self { x } else { unreachable!() }
+    }
+
     pub fn unwrap_struct(&mut self) -> &mut StructData<'a> {
         if let Data::Struct(x) = self { x } else { unreachable!() }
     }
@@ -112,6 +120,7 @@ impl<'a> Data<'a> {
 }
 
 // We could use `enum_dispatch` to autogenerate this boilerplate, but unfortunately it doesn't work with RLS.
+// Might be worthwhile to use a macro here ...
 impl<'a> BaseData<'a> for Data<'a> {
     fn schema(&self) -> &'a Schema {
         match self {
@@ -122,6 +131,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Timestamp(x) => x.schema(),
             Data::Decimal64(x) => x.schema(),
             Data::String(x) => x.schema(),
+            Data::Binary(x) => x.schema(),
             Data::Struct(x) => x.schema(),
             Data::List(x) => x.schema(),
             Data::Map(x) => x.schema(),
@@ -138,6 +148,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Timestamp(x) => x.column_id(),
             Data::Decimal64(x) => x.column_id(),
             Data::String(x) => x.column_id(),
+            Data::Binary(x) => x.column_id(),
             Data::Struct(x) => x.column_id(),
             Data::List(x) => x.column_id(),
             Data::Map(x) => x.column_id(),
@@ -154,6 +165,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Timestamp(x) => x.write_index_streams(out, stream_infos_out),
             Data::Decimal64(x) => x.write_index_streams(out, stream_infos_out),
             Data::String(x) => x.write_index_streams(out, stream_infos_out),
+            Data::Binary(x) => x.write_index_streams(out, stream_infos_out),
             Data::Struct(x) => x.write_index_streams(out, stream_infos_out),
             Data::List(x) => x.write_index_streams(out, stream_infos_out),
             Data::Map(x) => x.write_index_streams(out, stream_infos_out),
@@ -170,6 +182,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Timestamp(x) => x.write_data_streams(out, stream_infos_out),
             Data::Decimal64(x) => x.write_data_streams(out, stream_infos_out),
             Data::String(x) => x.write_data_streams(out, stream_infos_out),
+            Data::Binary(x) => x.write_data_streams(out, stream_infos_out),
             Data::Struct(x) => x.write_data_streams(out, stream_infos_out),
             Data::List(x) => x.write_data_streams(out, stream_infos_out),
             Data::Map(x) => x.write_data_streams(out, stream_infos_out),
@@ -186,6 +199,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Timestamp(x) => x.column_encodings(out),
             Data::Decimal64(x) => x.column_encodings(out),
             Data::String(x) => x.column_encodings(out),
+            Data::Binary(x) => x.column_encodings(out),
             Data::Struct(x) => x.column_encodings(out),
             Data::List(x) => x.column_encodings(out),
             Data::Map(x) => x.column_encodings(out),
@@ -202,6 +216,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Timestamp(x) => x.statistics(out),
             Data::Decimal64(x) => x.statistics(out),
             Data::String(x) => x.statistics(out),
+            Data::Binary(x) => x.statistics(out),
             Data::Struct(x) => x.statistics(out),
             Data::List(x) => x.statistics(out),
             Data::Map(x) => x.statistics(out),
@@ -218,6 +233,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Timestamp(x) => x.verify_row_count(row_count),
             Data::Decimal64(x) => x.verify_row_count(row_count),
             Data::String(x) => x.verify_row_count(row_count),
+            Data::Binary(x) => x.verify_row_count(row_count),
             Data::Struct(x) => x.verify_row_count(row_count),
             Data::List(x) => x.verify_row_count(row_count),
             Data::Map(x) => x.verify_row_count(row_count),
@@ -234,6 +250,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Timestamp(x) => x.estimated_size(),
             Data::Decimal64(x) => x.estimated_size(),
             Data::String(x) => x.estimated_size(),
+            Data::Binary(x) => x.estimated_size(),
             Data::Struct(x) => x.estimated_size(),
             Data::List(x) => x.estimated_size(),
             Data::Map(x) => x.estimated_size(),
@@ -250,6 +267,7 @@ impl<'a> BaseData<'a> for Data<'a> {
             Data::Timestamp(x) => x.reset(),
             Data::Decimal64(x) => x.reset(),
             Data::String(x) => x.reset(),
+            Data::Binary(x) => x.reset(),
             Data::Struct(x) => x.reset(),
             Data::List(x) => x.reset(),
             Data::Map(x) => x.reset(),

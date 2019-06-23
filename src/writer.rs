@@ -199,6 +199,10 @@ impl<'a, W: Write> Writer<'a, W> {
                 }
                 types.push(t);
             }
+            Data::Binary(_) => {
+                t.set_kind(orc_proto::Type_Kind::BINARY);
+                types.push(t);
+            }
             Data::Struct(struct_data) => {
                 t.set_kind(orc_proto::Type_Kind::STRUCT);
                 let mut subtypes: Vec<u32> = Vec::new();

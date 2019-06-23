@@ -8,6 +8,7 @@ pub use string::StringStatistics;
 pub use double::DoubleStatistics;
 pub use decimal64::Decimal64Statistics;
 pub use timestamp::TimestampStatistics;
+pub use binary::BinaryStatistics;
 
 mod common;
 mod boolean;
@@ -17,6 +18,7 @@ mod string;
 mod double;
 mod decimal64;
 mod timestamp;
+mod binary;
 
 #[derive(Debug, Clone)]
 pub enum Statistics {
@@ -26,6 +28,7 @@ pub enum Statistics {
     Decimal64(Decimal64Statistics),
     Timestamp(TimestampStatistics),
     String(StringStatistics),
+    Binary(BinaryStatistics),
     Generic(GenericStatistics),
 }
 
@@ -44,6 +47,10 @@ impl Statistics {
 
     pub fn unwrap_string(&self) -> &StringStatistics { 
         if let Statistics::String(x) = self { x } else { panic!("invalid argument to unwrap_string"); }
+    }
+
+    pub fn unwrap_binary(&self) -> &BinaryStatistics { 
+        if let Statistics::Binary(x) = self { x } else { panic!("invalid argument to unwrap_binary"); }
     }
 
     pub fn unwrap_double(&self) -> &DoubleStatistics { 
@@ -102,6 +109,11 @@ impl Statistics {
                 str_stat.set_sum(string_statistics.sum_lengths as i64);
                 stat.set_stringStatistics(str_stat);
             }
+            Statistics::Binary(binary_statistics) => {
+                let mut bin_stat = orc_proto::BinaryStatistics::new();
+                bin_stat.set_sum(binary_statistics.sum_lengths as i64);
+                stat.set_binaryStatistics(bin_stat);
+            }
             Statistics::Generic(_) => {}
         }
         stat
@@ -117,6 +129,7 @@ impl BaseStatistics for Statistics {
             Statistics::Decimal64(x) => x.num_values(),
             Statistics::Timestamp(x) => x.num_values(),
             Statistics::String(x) => x.num_values(),
+            Statistics::Binary(x) => x.num_values(),
             Statistics::Generic(x) => x.num_values(),
         }
     }
@@ -129,6 +142,7 @@ impl BaseStatistics for Statistics {
             Statistics::Decimal64(x) => x.num_present(),
             Statistics::Timestamp(x) => x.num_present(),
             Statistics::String(x) => x.num_present(),
+            Statistics::Binary(x) => x.num_present(),
             Statistics::Generic(x) => x.num_present(),
         }
     }
@@ -141,6 +155,7 @@ impl BaseStatistics for Statistics {
             Statistics::Decimal64(x) => x.merge(rhs.unwrap_decimal64()),
             Statistics::Timestamp(x) => x.merge(rhs.unwrap_timestamp()),
             Statistics::String(x) => x.merge(rhs.unwrap_string()),
+            Statistics::Binary(x) => x.merge(rhs.unwrap_binary()),
             Statistics::Generic(x) => x.merge(rhs.unwrap_generic()),
         }
     }

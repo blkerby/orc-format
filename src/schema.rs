@@ -11,6 +11,7 @@ pub enum Schema {
     Timestamp,
     Decimal(u32, u32),
     String,
+    Binary,
     Char(u32),
     VarChar(u32),
     Struct(Vec<Field>),

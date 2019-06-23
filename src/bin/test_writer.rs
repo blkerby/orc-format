@@ -18,6 +18,7 @@ fn main() -> Result<()> {
         Field("g".to_owned(), Schema::Map(Box::new(Schema::String), Box::new(Schema::Boolean))),
         Field("h".to_owned(), Schema::Timestamp),
         Field("i".to_owned(), Schema::Union(vec![Schema::Long, Schema::Float])),
+        Field("k".to_owned(), Schema::Binary),
     ]);
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
@@ -103,6 +104,11 @@ fn main() -> Result<()> {
                 i.child(1).unwrap_float().write(Some(j as f32));
                 i.write(true, 1);
             }
+        }
+
+        let k = root.child(12).unwrap_binary();
+        for _ in 0..batch_size {
+            k.write(Some(b"abc"));
         }
 
         for _ in 0..batch_size {
