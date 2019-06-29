@@ -35,34 +35,34 @@ mod list;
 mod map;
 mod union;
 
-pub enum Data<'a> {
-    Boolean(BooleanData<'a>),
-    Long(LongData<'a>),
-    Float(FloatData<'a>),
-    Double(DoubleData<'a>),
-    Timestamp(TimestampData<'a>),
-    Decimal64(Decimal64Data<'a>),
-    String(StringData<'a>),
-    Binary(BinaryData<'a>),
-    List(ListData<'a>),
-    Struct(StructData<'a>),
-    Map(MapData<'a>),
-    Union(UnionData<'a>),
+pub enum Data {
+    Boolean(BooleanData),
+    Long(LongData),
+    Float(FloatData),
+    Double(DoubleData),
+    Timestamp(TimestampData),
+    Decimal64(Decimal64Data),
+    String(StringData),
+    Binary(BinaryData),
+    List(ListData),
+    Struct(StructData),
+    Map(MapData),
+    Union(UnionData),
 }
 
-impl<'a> Data<'a> {
-    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
+impl Data {
+    pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         match schema {
-            Schema::Boolean => Data::Boolean(BooleanData::new(schema, config, column_id)),
+            Schema::Boolean => Data::Boolean(BooleanData::new(config, column_id)),
             Schema::Short | Schema::Int | Schema::Long | Schema::Date => 
                 Data::Long(LongData::new(schema, config, column_id)),
-            Schema::Float => Data::Float(FloatData::new(schema, config, column_id)),
-            Schema::Double => Data::Double(DoubleData::new(schema, config, column_id)),
-            Schema::Timestamp => Data::Timestamp(TimestampData::new(schema, config, column_id)),
+            Schema::Float => Data::Float(FloatData::new(config, column_id)),
+            Schema::Double => Data::Double(DoubleData::new(config, column_id)),
+            Schema::Timestamp => Data::Timestamp(TimestampData::new(config, column_id)),
             Schema::Decimal(_, _) => Data::Decimal64(Decimal64Data::new(schema, config, column_id)),
             Schema::String | Schema::VarChar(_) | Schema::Char(_) => 
                 Data::String(StringData::new(schema, config, column_id)),
-            Schema::Binary => Data::Binary(BinaryData::new(schema, config, column_id)),
+            Schema::Binary => Data::Binary(BinaryData::new(config, column_id)),
             Schema::Struct(_) => Data::Struct(StructData::new(schema, config, column_id)),
             Schema::List(_) => Data::List(ListData::new(schema, config, column_id)),
             Schema::Map(_, _) => Data::Map(MapData::new(schema, config, column_id)),
@@ -70,75 +70,58 @@ impl<'a> Data<'a> {
         }
     }
 
-    pub fn unwrap_boolean(&mut self) -> &mut BooleanData<'a> {
+    pub fn unwrap_boolean(&mut self) -> &mut BooleanData {
         if let Data::Boolean(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_long(&mut self) -> &mut LongData<'a> {
+    pub fn unwrap_long(&mut self) -> &mut LongData {
         if let Data::Long(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_float(&mut self) -> &mut FloatData<'a> {
+    pub fn unwrap_float(&mut self) -> &mut FloatData {
         if let Data::Float(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_double(&mut self) -> &mut DoubleData<'a> {
+    pub fn unwrap_double(&mut self) -> &mut DoubleData {
         if let Data::Double(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_timestamp(&mut self) -> &mut TimestampData<'a> {
+    pub fn unwrap_timestamp(&mut self) -> &mut TimestampData {
         if let Data::Timestamp(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_decimal64(&mut self) -> &mut Decimal64Data<'a> {
+    pub fn unwrap_decimal64(&mut self) -> &mut Decimal64Data {
         if let Data::Decimal64(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_string(&mut self) -> &mut StringData<'a> {
+    pub fn unwrap_string(&mut self) -> &mut StringData {
         if let Data::String(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_binary(&mut self) -> &mut BinaryData<'a> {
+    pub fn unwrap_binary(&mut self) -> &mut BinaryData {
         if let Data::Binary(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_struct(&mut self) -> &mut StructData<'a> {
+    pub fn unwrap_struct(&mut self) -> &mut StructData {
         if let Data::Struct(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_list(&mut self) -> &mut ListData<'a> {
+    pub fn unwrap_list(&mut self) -> &mut ListData {
         if let Data::List(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_map(&mut self) -> &mut MapData<'a> {
+    pub fn unwrap_map(&mut self) -> &mut MapData {
         if let Data::Map(x) = self { x } else { unreachable!() }
     }
 
-    pub fn unwrap_union(&mut self) -> &mut UnionData<'a> {
+    pub fn unwrap_union(&mut self) -> &mut UnionData {
         if let Data::Union(x) = self { x } else { unreachable!() }
     }
 }
 
 // We could use `enum_dispatch` to autogenerate this boilerplate, but unfortunately it doesn't work with RLS.
 // Might be worthwhile to use a macro here ...
-impl<'a> BaseData<'a> for Data<'a> {
-    fn schema(&self) -> &'a Schema {
-        match self {
-            Data::Boolean(x) => x.schema(),
-            Data::Long(x) => x.schema(),
-            Data::Float(x) => x.schema(),
-            Data::Double(x) => x.schema(),
-            Data::Timestamp(x) => x.schema(),
-            Data::Decimal64(x) => x.schema(),
-            Data::String(x) => x.schema(),
-            Data::Binary(x) => x.schema(),
-            Data::Struct(x) => x.schema(),
-            Data::List(x) => x.schema(),
-            Data::Map(x) => x.schema(),
-            Data::Union(x) => x.schema(),
-        }
-    }
-
+impl BaseData for Data {
     fn column_id(&self) -> u32 {
         match self {
             Data::Boolean(x) => x.column_id(),

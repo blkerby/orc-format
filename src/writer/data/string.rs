@@ -10,22 +10,22 @@ use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, StringStatistics};
 use crate::writer::data::common::BaseData;
 
-pub struct StringData<'a> {
+pub struct StringData {
     pub(crate) column_id: u32,
-    schema: &'a Schema,
+    schema: Schema,
     present: BooleanRLE,
     data: CompressionStream,
     lengths: UnsignedIntRLEv1,
     stripe_stats: StringStatistics,
 }
 
-impl<'a> StringData<'a> {
-    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
+impl StringData {
+    pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
         StringData {
             column_id: cid,
-            schema,
+            schema: schema.clone(),
             present: BooleanRLE::new(&config.compression),
             data: CompressionStream::new(&config.compression),
             lengths: UnsignedIntRLEv1::new(&config.compression),
@@ -46,11 +46,13 @@ impl<'a> StringData<'a> {
         }
         self.stripe_stats.update(x);
     }
+
+    pub fn schema(&self) -> &Schema { 
+        &self.schema
+    }
 }
 
-impl<'a> BaseData<'a> for StringData<'a> {
-    fn schema(&self) -> &'a Schema { self.schema }
-
+impl BaseData for StringData {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {

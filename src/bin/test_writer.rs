@@ -1,6 +1,6 @@
-use orc_rs::schema::{Schema, Field};
-use orc_rs::writer::SnappyCompression;
-use orc_rs::writer::{Config, Writer};
+use orc_format::schema::{Schema, Field};
+use orc_format::writer::SnappyCompression;
+use orc_format::writer::{Config, Writer};
 use std::fs::File;
 use std::io::Result;
 
@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     // let mut out = File::create("/dev/null")?;
     let mut out = File::create("target/test.orc")?;
     let config = Config::new().with_compression(SnappyCompression::new().build());
-    let mut writer = Writer::new(&mut out, &schema, &config)?;
+    let mut writer = Writer::new(&mut out, &schema, config)?;
     let batch_size: i64 = 10;
     for n in 0..1 {
     // for n in 0..100000 {

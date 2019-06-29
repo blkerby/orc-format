@@ -3,20 +3,18 @@ use std::io::{Result, Write};
 use byteorder::{LittleEndian, WriteBytesExt};
 
 
-
 use crate::buffer::Buffer;
+use common::{CompressionTrait, Compressor};
 
-pub mod snappy;
+pub use no_compression::NoCompression;
+pub use snappy::SnappyCompression;
 
-const MAX_BLOCK_SIZE: usize = 0x7fffff;
+mod common;
+mod no_compression;
+mod snappy;
 
-trait CompressionImpl {
-    fn kind(&self) -> orc_proto::CompressionKind;
-    fn block_size(&self) -> usize;
-    fn compressor(&self) -> Option<Box<dyn Compressor>>;
-}
-
-pub struct Compression(Box<dyn CompressionImpl>);
+#[derive(Clone)]
+pub struct Compression(CompressionEnum);
 
 impl Compression {
     pub(crate) fn kind(&self) -> orc_proto::CompressionKind {
@@ -32,41 +30,49 @@ impl Compression {
     }
 }
 
-trait Compressor {
-    fn compress(&mut self, input: &[u8], output: &mut Buffer);
+#[derive(Clone)]
+pub enum CompressionEnum {
+    No(NoCompression),
+    Snappy(SnappyCompression),
 }
 
-// Include a private dummy field inside, to prevent external construction of the struct
-// except through the public API. This leaves open the possibility for us to add additional
-// fields later in a backward-compatible way.
-pub struct NoCompression {
-    _dummy: (),
-}
-
-impl NoCompression {
-    pub fn new() -> NoCompression {
-        NoCompression { _dummy: () }
-    }
-
-    pub fn build(self) -> Compression {
-        Compression(Box::new(self))
-    }
-}
-
-impl CompressionImpl for NoCompression {
+// We could eliminate this boilerplate using enum-dispatch, but it doesn't work yet with RLS.
+// Maybe use macros ...
+impl CompressionTrait for CompressionEnum {
     fn kind(&self) -> orc_proto::CompressionKind {
-        orc_proto::CompressionKind::NONE
+        match self {
+            CompressionEnum::No(x) => x.kind(),
+            CompressionEnum::Snappy(x) => x.kind(),
+        }
     }
 
     fn block_size(&self) -> usize {
-        0
+        match self {
+            CompressionEnum::No(x) => x.block_size(),
+            CompressionEnum::Snappy(x) => x.block_size(),
+        }
     }
 
     fn compressor(&self) -> Option<Box<dyn Compressor>> {
-        None
+        match self {
+            CompressionEnum::No(x) => x.compressor(),
+            CompressionEnum::Snappy(x) => x.compressor(),
+        }
+    }
+
+}
+
+impl NoCompression {
+    pub fn build(self) -> Compression {
+        Compression(CompressionEnum::No(self))
     }
 }
 
+impl SnappyCompression {
+    pub fn build(self) -> Compression {
+        Compression(CompressionEnum::Snappy(self))
+    }
+}
 
 struct BlockInfo {
     is_original: bool,

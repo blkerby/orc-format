@@ -1,7 +1,6 @@
 use std::io::{Write, Result};
 
 use crate::protos::orc_proto;
-use crate::schema::Schema;
 use crate::writer::Config;
 use crate::writer::count_write::CountWrite;
 use crate::writer::compression::CompressionStream;
@@ -10,22 +9,20 @@ use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, BinaryStatistics};
 use crate::writer::data::common::BaseData;
 
-pub struct BinaryData<'a> {
+pub struct BinaryData {
     pub(crate) column_id: u32,
-    schema: &'a Schema,
     present: BooleanRLE,
     data: CompressionStream,
     lengths: UnsignedIntRLEv1,
     stripe_stats: BinaryStatistics,
 }
 
-impl<'a> BinaryData<'a> {
-    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
+impl BinaryData {
+    pub(crate) fn new(config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
         Self {
             column_id: cid,
-            schema,
             present: BooleanRLE::new(&config.compression),
             data: CompressionStream::new(&config.compression),
             lengths: UnsignedIntRLEv1::new(&config.compression),
@@ -48,9 +45,7 @@ impl<'a> BinaryData<'a> {
     }
 }
 
-impl<'a> BaseData<'a> for BinaryData<'a> {
-    fn schema(&self) -> &'a Schema { self.schema }
-
+impl BaseData for BinaryData {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {

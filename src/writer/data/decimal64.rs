@@ -11,9 +11,8 @@ use crate::writer::statistics::{Statistics, BaseStatistics, Decimal64Statistics}
 use crate::writer::data::common::BaseData;
 
 
-pub struct Decimal64Data<'a> {
+pub struct Decimal64Data {
     pub(crate) column_id: u32,
-    pub(crate) schema: &'a Schema,
     precision: u32,
     scale: u32,
     present: BooleanRLE,
@@ -26,14 +25,13 @@ pub struct Decimal64Data<'a> {
     stripe_stats: Decimal64Statistics,
 }
 
-impl<'a> Decimal64Data<'a> {
-    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
+impl Decimal64Data {
+    pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
         if let Schema::Decimal(precision, scale) = schema {
             Self {
                 column_id: cid,
-                schema,
                 precision: *precision,
                 scale: *scale,
                 present: BooleanRLE::new(&config.compression),
@@ -63,9 +61,7 @@ impl<'a> Decimal64Data<'a> {
     pub fn scale(&self) -> u32 { self.scale }
 }
 
-impl<'a> BaseData<'a> for Decimal64Data<'a> {
-    fn schema(&self) -> &'a Schema { self.schema }
-
+impl BaseData for Decimal64Data {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {

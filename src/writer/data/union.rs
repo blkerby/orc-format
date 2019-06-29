@@ -10,18 +10,17 @@ use crate::writer::statistics::{Statistics, BaseStatistics, GenericStatistics};
 use crate::writer::data::common::BaseData;
 use crate::writer::data::Data;
 
-pub struct UnionData<'a> {
+pub struct UnionData {
     column_id: u32,
-    pub(crate) schema: &'a Schema,
-    pub(crate) children: Vec<Data<'a>>,
+    pub(crate) children: Vec<Data>,
     child_counts: Vec<u64>,
     present: BooleanRLE,
     tags: ByteRLE,
     stripe_stats: GenericStatistics,
 }
 
-impl<'a> UnionData<'a> {
-    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
+impl UnionData {
+    pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         let mut children: Vec<Data> = Vec::new();
         *column_id += 1;
@@ -36,7 +35,6 @@ impl<'a> UnionData<'a> {
 
             Self {
                 column_id: cid,
-                schema,
                 present: BooleanRLE::new(&config.compression),
                 children: children,
                 child_counts: vec![0; fields.len()],
@@ -46,17 +44,11 @@ impl<'a> UnionData<'a> {
         } else { unreachable!() }
     }
     
-    pub fn fields(&self) -> &'a [Schema] {
-        if let Schema::Union(f) = self.schema {
-            f.as_slice()
-        } else { unreachable!() }
-    }
-
-    pub fn children(&mut self) -> &mut [Data<'a>] {
+    pub fn children(&mut self) -> &mut [Data] {
         &mut self.children
     }
 
-    pub fn child(&mut self, i: usize) -> &mut Data<'a> {
+    pub fn child(&mut self, i: usize) -> &mut Data {
         &mut self.children[i]
     }
 
@@ -73,9 +65,7 @@ impl<'a> UnionData<'a> {
     pub fn column_id(&self) -> u32 { self.column_id }
 }
 
-impl<'a> BaseData<'a> for UnionData<'a> {
-    fn schema(&self) -> &'a Schema { self.schema }
-
+impl BaseData for UnionData {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {

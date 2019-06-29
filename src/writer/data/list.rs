@@ -10,24 +10,22 @@ use crate::writer::statistics::{Statistics, BaseStatistics, GenericStatistics};
 use crate::writer::data::common::BaseData;
 use crate::writer::data::Data;
 
-pub struct ListData<'a> {
+pub struct ListData {
     column_id: u32,
-    pub(crate) schema: &'a Schema,
-    pub(crate) child: Box<Data<'a>>,
+    pub(crate) child: Box<Data>,
     present: BooleanRLE,
     lengths: UnsignedIntRLEv1,
     stripe_stats: GenericStatistics,
     num_child_values: u64,
 }
 
-impl<'a> ListData<'a> {
-    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
+impl ListData {
+    pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
         if let Schema::List(child_schema) = schema {                
             Self {
                 column_id: cid,
-                schema,
                 child: Box::new(Data::new(&child_schema, config, column_id)),
                 present: BooleanRLE::new(&config.compression),
                 lengths: UnsignedIntRLEv1::new(&config.compression),
@@ -37,7 +35,7 @@ impl<'a> ListData<'a> {
         } else { unreachable!() }
     }
     
-    pub fn child(&mut self) -> &mut Data<'a> {
+    pub fn child(&mut self) -> &mut Data {
         &mut self.child
     }
 
@@ -55,9 +53,7 @@ impl<'a> ListData<'a> {
     pub fn column_id(&self) -> u32 { self.column_id }
 }
 
-impl<'a> BaseData<'a> for ListData<'a> {
-    fn schema(&self) -> &'a Schema { self.schema }
-
+impl BaseData for ListData {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {

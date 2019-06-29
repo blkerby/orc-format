@@ -1,7 +1,7 @@
 use std::io::{Write, Result};
 
 use crate::protos::orc_proto;
-use crate::schema::{Schema, Field};
+use crate::schema::Schema;
 use crate::writer::Config;
 use crate::writer::count_write::CountWrite;
 use crate::writer::encoder::BooleanRLE;
@@ -10,46 +10,46 @@ use crate::writer::statistics::{Statistics, BaseStatistics, GenericStatistics};
 use crate::writer::data::common::BaseData;
 use crate::writer::data::Data;
 
-pub struct StructData<'a> {
+pub struct StructData {
     column_id: u32,
-    pub(crate) schema: &'a Schema,
-    pub(crate) children: Vec<Data<'a>>,
+    pub(crate) children: Vec<Data>,
     present: BooleanRLE,
     stripe_stats: GenericStatistics,
+    field_names: Vec<String>,
 }
 
-impl<'a> StructData<'a> {
-    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
+impl StructData {
+    pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         let mut children: Vec<Data> = Vec::new();
+        let mut field_names: Vec<String> = Vec::new();
         *column_id += 1;
 
         if let Schema::Struct(fields) = schema {
             for field in fields {
+                field_names.push(field.0.clone());
                 children.push(Data::new(&field.1, config, column_id));
             }
 
             StructData {
                 column_id: cid,
-                schema,
                 present: BooleanRLE::new(&config.compression),
                 children: children,
                 stripe_stats: GenericStatistics::new(),
+                field_names,
             }
         } else { unreachable!() }
     }
     
-    pub fn fields(&self) -> &'a [Field] {
-        if let Schema::Struct(f) = self.schema {
-            f
-        } else { unreachable!() }
+    pub(crate) fn field_names(&self) -> &[String] {
+        &self.field_names
     }
 
-    pub fn children(&mut self) -> &mut [Data<'a>] {
+    pub fn children(&mut self) -> &mut [Data] {
         &mut self.children
     }
 
-    pub fn child(&mut self, i: usize) -> &mut Data<'a> {
+    pub fn child(&mut self, i: usize) -> &mut Data {
         &mut self.children[i]
     }
 
@@ -61,9 +61,7 @@ impl<'a> StructData<'a> {
     pub fn column_id(&self) -> u32 { self.column_id }
 }
 
-impl<'a> BaseData<'a> for StructData<'a> {
-    fn schema(&self) -> &'a Schema { self.schema }
-
+impl BaseData for StructData {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {

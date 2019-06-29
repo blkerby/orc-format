@@ -1,5 +1,7 @@
+#[derive(Clone)]
 pub struct Field(pub String, pub Schema);
 
+#[derive(Clone)]
 pub enum Schema {
     Boolean,
     Short,

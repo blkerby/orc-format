@@ -1,7 +1,6 @@
 use std::io::{Write, Result};
 
 use crate::protos::orc_proto;
-use crate::schema::Schema;
 use crate::writer::Config;
 use crate::writer::count_write::CountWrite;
 use crate::writer::encoder::{BooleanRLE, SignedIntRLEv1, UnsignedIntRLEv1};
@@ -10,25 +9,23 @@ use crate::writer::statistics::{Statistics, BaseStatistics, TimestampStatistics}
 use crate::writer::data::common::BaseData;
 
 
-pub struct TimestampData<'a> {
+pub struct TimestampData {
     pub(crate) column_id: u32,
-    pub(crate) schema: &'a Schema,
     present: BooleanRLE,
     seconds: SignedIntRLEv1,
     nanos: UnsignedIntRLEv1,
     stripe_stats: TimestampStatistics,
 }
 
-impl<'a> TimestampData<'a> {
+impl TimestampData {
     /// Number of seconds between UNIX epoch and the ORC timestamp origin (2015-01-01)
     pub const EPOCH_SECONDS: i64 = -1420070400; 
 
-    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
+    pub(crate) fn new(config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
         Self {
             column_id: cid,
-            schema,
             present: BooleanRLE::new(&config.compression),
             seconds: SignedIntRLEv1::new(&config.compression),
             nanos: UnsignedIntRLEv1::new(&config.compression),
@@ -69,9 +66,7 @@ impl<'a> TimestampData<'a> {
     }
 }
 
-impl<'a> BaseData<'a> for TimestampData<'a> {
-    fn schema(&self) -> &'a Schema { self.schema }
-
+impl BaseData for TimestampData {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {

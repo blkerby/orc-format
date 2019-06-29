@@ -9,8 +9,7 @@ use statistics::{BaseStatistics, Statistics};
 use stripe::{Stripe, StripeInfo};
 
 pub use data::{Data, BaseData, LongData, StructData};
-pub use compression::snappy::SnappyCompression;
-pub use compression::{Compression, CompressionStream, NoCompression};
+pub use compression::{Compression, CompressionStream, NoCompression, SnappyCompression};
 
 mod compression;
 mod stripe;
@@ -53,28 +52,28 @@ impl Config {
 }
 
 #[must_use]
-pub struct Writer<'a, W: Write> {
+pub struct Writer<W: Write> {
     inner: CountWrite<W>,
-    config: &'a Config,
-    current_stripe: Stripe<'a>,
+    config: Config,
+    current_stripe: Stripe,
     stripe_infos: Vec<StripeInfo>,
 }
 
-impl<'a, W: Write> Writer<'a, W> {
+impl<W: Write> Writer<W> {
     const HEADER_LENGTH: u64 = 3;
 
-    pub fn new(inner: W, schema: &'a Schema, config: &'a Config) -> Result<Self> {
+    pub fn new(inner: W, schema: &Schema, config: Config) -> Result<Self> {
         let mut writer = Self {
             inner: CountWrite::new(inner),
+            current_stripe: Stripe::new(schema, &config),
             config,
-            current_stripe: Stripe::new(&schema, &config),
             stripe_infos: Vec::new(),
         };
         writer.write_header()?;
         Ok(writer)
     }
 
-    pub fn data(&mut self) -> &mut Data<'a> {
+    pub fn data(&mut self) -> &mut Data {
         &mut self.current_stripe.data
     }
 
@@ -147,7 +146,7 @@ impl<'a, W: Write> Writer<'a, W> {
         Ok(())
     }
 
-    fn make_types(data: &Data<'a>, types: &mut Vec<orc_proto::Type>) {
+    fn make_types(data: &Data, types: &mut Vec<orc_proto::Type>) {
         let mut t = orc_proto::Type::new();
         match data {
             Data::Boolean(_) => {
@@ -155,7 +154,7 @@ impl<'a, W: Write> Writer<'a, W> {
                 types.push(t);
             }
             Data::Long(long_data) => {
-                t.set_kind(match long_data.schema {
+                t.set_kind(match long_data.schema() {
                     Schema::Short => orc_proto::Type_Kind::SHORT,
                     Schema::Int => orc_proto::Type_Kind::INT,
                     Schema::Long => orc_proto::Type_Kind::LONG,
@@ -211,8 +210,8 @@ impl<'a, W: Write> Writer<'a, W> {
                 }
 
                 let mut field_names: Vec<String> = Vec::new();
-                for f in struct_data.fields() {
-                    field_names.push(f.0.to_owned());
+                for f in struct_data.field_names() {
+                    field_names.push(f.clone());
                 }
 
                 t.set_subtypes(subtypes);

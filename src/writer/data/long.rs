@@ -10,24 +10,24 @@ use crate::writer::statistics::{Statistics, BaseStatistics, LongStatistics};
 use crate::writer::data::common::BaseData;
 
 
-pub struct LongData<'a> {
+pub struct LongData {
     pub(crate) column_id: u32,
-    pub(crate) schema: &'a Schema,
     present: BooleanRLE,
     data: SignedIntRLEv1,
     stripe_stats: LongStatistics,
+    schema: Schema,
 }
 
-impl<'a> LongData<'a> {
-    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
+impl LongData {
+    pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
-        LongData {
+        Self {
             column_id: cid,
-            schema,
             present: BooleanRLE::new(&config.compression),
             data: SignedIntRLEv1::new(&config.compression),
             stripe_stats: LongStatistics::new(),
+            schema: schema.clone(),
         }
     }
 
@@ -43,11 +43,13 @@ impl<'a> LongData<'a> {
         }
         self.stripe_stats.update(x);
     }
+
+    pub fn schema(&self) -> &Schema {
+        &self.schema
+    }
 }
 
-impl<'a> BaseData<'a> for LongData<'a> {
-    fn schema(&self) -> &'a Schema { self.schema }
-
+impl BaseData for LongData {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {

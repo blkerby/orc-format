@@ -10,25 +10,23 @@ use crate::writer::statistics::{Statistics, BaseStatistics, GenericStatistics};
 use crate::writer::data::common::BaseData;
 use crate::writer::data::Data;
 
-pub struct MapData<'a> {
+pub struct MapData {
     column_id: u32,
-    pub(crate) schema: &'a Schema,
-    pub(crate) keys: Box<Data<'a>>,
-    pub(crate) values: Box<Data<'a>>,
+    pub(crate) keys: Box<Data>,
+    pub(crate) values: Box<Data>,
     present: BooleanRLE,
     lengths: UnsignedIntRLEv1,
     stripe_stats: GenericStatistics,
     num_child_values: u64,
 }
 
-impl<'a> MapData<'a> {
-    pub(crate) fn new(schema: &'a Schema, config: &'a Config, column_id: &mut u32) -> Self {
+impl MapData {
+    pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
         if let Schema::Map(key_schema, value_schema) = schema {                
             Self {
                 column_id: cid,
-                schema,
                 keys: Box::new(Data::new(&key_schema, config, column_id)),
                 values: Box::new(Data::new(&value_schema, config, column_id)),
                 present: BooleanRLE::new(&config.compression),
@@ -39,15 +37,15 @@ impl<'a> MapData<'a> {
         } else { unreachable!() }
     }
     
-    pub fn keys(&mut self) -> &mut Data<'a> {
+    pub fn keys(&mut self) -> &mut Data {
         &mut self.keys
     }
 
-    pub fn values(&mut self) -> &mut Data<'a> {
+    pub fn values(&mut self) -> &mut Data {
         &mut self.values
     }
 
-    pub fn children(&mut self) -> (&mut Data<'a>, &mut Data<'a>) {
+    pub fn children(&mut self) -> (&mut Data, &mut Data) {
         (&mut self.keys, &mut self.values)
     }
 
@@ -65,9 +63,7 @@ impl<'a> MapData<'a> {
     pub fn column_id(&self) -> u32 { self.column_id }
 }
 
-impl<'a> BaseData<'a> for MapData<'a> {
-    fn schema(&self) -> &'a Schema { self.schema }
-
+impl BaseData for MapData {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
