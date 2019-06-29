@@ -8,7 +8,7 @@ use crate::writer::compression::CompressionStream;
 use crate::writer::encoder::BooleanRLE;
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, DoubleStatistics};
-use crate::writer::data::common::BaseData;
+use crate::writer::data::common::{GenericData, BaseData};
 
 
 pub struct DoubleData {
@@ -30,17 +30,17 @@ impl DoubleData {
         }
     }
 
-    pub fn write(&mut self, x: Option<f64>) {
-        match x {
-            Some(xv) => {
-                self.present.write(true);
-                self.data.write_f64::<LittleEndian>(xv).unwrap();
-            }
-            None => { 
-                self.present.write(false); 
-            }
-        }
+    pub fn write(&mut self, x: f64) {
+        self.present.write(true);
+        self.data.write_f64::<LittleEndian>(x).unwrap();
         self.stripe_stats.update(x);
+    }
+}
+
+impl GenericData for DoubleData {
+    fn write_null(&mut self) {
+        self.present.write(false);
+        self.stripe_stats.update_null();
     }
 }
 

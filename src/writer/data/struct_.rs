@@ -7,7 +7,7 @@ use crate::writer::count_write::CountWrite;
 use crate::writer::encoder::BooleanRLE;
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, GenericStatistics};
-use crate::writer::data::common::BaseData;
+use crate::writer::data::common::{GenericData, BaseData};
 use crate::writer::data::Data;
 
 pub struct StructData {
@@ -53,12 +53,19 @@ impl StructData {
         &mut self.children[i]
     }
 
-    pub fn write(&mut self, present: bool) {
-        self.present.write(present);
-        self.stripe_stats.update(present);
+    pub fn write(&mut self) {
+        self.present.write(true);
+        self.stripe_stats.update();
     }
 
     pub fn column_id(&self) -> u32 { self.column_id }
+}
+
+impl GenericData for StructData {
+    fn write_null(&mut self) {
+        self.present.write(false);
+        self.stripe_stats.update_null();
+    }
 }
 
 impl BaseData for StructData {

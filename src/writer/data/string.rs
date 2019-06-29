@@ -8,7 +8,7 @@ use crate::writer::compression::CompressionStream;
 use crate::writer::encoder::{BooleanRLE, UnsignedIntRLEv1};
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, StringStatistics};
-use crate::writer::data::common::BaseData;
+use crate::writer::data::common::{GenericData, BaseData};
 
 pub struct StringData {
     pub(crate) column_id: u32,
@@ -33,22 +33,22 @@ impl StringData {
         }
     }
 
-    pub fn write(&mut self, x: Option<&str>) {
-        match x {
-            Some(xv) => {
-                self.present.write(true);
-                self.data.write_bytes(xv.as_bytes());
-                self.lengths.write(xv.len() as u64);
-            }
-            None => { 
-                self.present.write(false); 
-            }
-        }
+    pub fn write(&mut self, x: &str) {
+        self.present.write(true);
+        self.data.write_bytes(x.as_bytes());
+        self.lengths.write(x.len() as u64);
         self.stripe_stats.update(x);
     }
 
     pub fn schema(&self) -> &Schema { 
         &self.schema
+    }
+}
+
+impl GenericData for StringData {
+    fn write_null(&mut self) {
+        self.present.write(false);
+        self.stripe_stats.update_null();
     }
 }
 

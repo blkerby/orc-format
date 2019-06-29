@@ -1,6 +1,6 @@
 use orc_format::schema::{Schema, Field};
 use orc_format::writer::SnappyCompression;
-use orc_format::writer::{Config, Writer};
+use orc_format::writer::{GenericData, Config, Writer};
 use std::fs::File;
 use std::io::Result;
 
@@ -31,47 +31,47 @@ fn main() -> Result<()> {
         let data = writer.data();
         let root = data.unwrap_struct();
         let x = root.child(0).unwrap_long();
-        x.write(None);
+        x.write_null();
         for j in 0..batch_size - 1 {
-            x.write(Some(n * batch_size + j));
+            x.write(n * batch_size + j);
         }
         let y = root.child(1).unwrap_long();
         for j in 0..batch_size - 1 {
-            y.write(Some(n * batch_size + j * j));
+            y.write(n * batch_size + j * j);
         }
-        y.write(None);
+        y.write_null();
         let z = root.child(2).unwrap_string();
         for j in 0..batch_size {
             let s = format!("hello {}", j / 3);
-            z.write(Some(&s));
+            z.write(&s);
         }
         let a = root.child(3).unwrap_double();
         for j in 0..batch_size {
-            a.write(Some(((j / 3) as f64) * 0.01));
+            a.write(((j / 3) as f64) * 0.01);
         }
         let b = root.child(4).unwrap_float();
         for j in 0..batch_size {
-            b.write(Some(((j / 3) as f32) * 0.5));
+            b.write(((j / 3) as f32) * 0.5);
         }
         let c = root.child(5).unwrap_long();
         for j in 0..batch_size {
-            c.write(Some(j));
+            c.write(j);
         }
         let d = root.child(6).unwrap_boolean();
         for j in 0..batch_size {
-            d.write(Some((j % 3 == 0) as bool));
+            d.write((j % 3 == 0) as bool);
         }
         let e = root.child(7).unwrap_decimal64();
         for j in 0..batch_size {
-            e.write(Some(j - batch_size / 2));
+            e.write(j - batch_size / 2);
         }
         let f = root.child(8).unwrap_list();
         let f1 = f.child().unwrap_long();
         for j in 0..(batch_size * (batch_size - 1) / 2) {
-            f1.write(Some(j));
+            f1.write(j);
         }
         for j in 0..batch_size {
-            f.write(Some(j as u64));
+            f.write(j as u64);
         }
         
         let g = root.child(9).unwrap_map();
@@ -79,15 +79,15 @@ fn main() -> Result<()> {
         let gkey_s = gkey.unwrap_string();
         let gval_b = gval.unwrap_boolean();
         for _ in 0..batch_size {
-            gkey_s.write(Some("param"));
-            gkey_s.write(Some("setting"));
+            gkey_s.write("param");
+            gkey_s.write("setting");
         }
         for j in 0..batch_size {
-            gval_b.write(Some((j % 2) != 0));
-            gval_b.write(Some(((j + 1) % 2) != 0));
+            gval_b.write((j % 2) != 0);
+            gval_b.write(((j + 1) % 2) != 0);
         }
         for _ in 0..batch_size {
-            g.write(Some(2));
+            g.write(2);
         }
 
         let h = root.child(10).unwrap_timestamp();
@@ -98,27 +98,27 @@ fn main() -> Result<()> {
         let i = root.child(11).unwrap_union();
         for j in 0..batch_size {
             if j % 2 == 0 {
-                i.child(0).unwrap_long().write(Some(j));
-                i.write(true, 0);
+                i.child(0).unwrap_long().write(j);
+                i.write(0);
             } else {
-                i.child(1).unwrap_float().write(Some(j as f32));
-                i.write(true, 1);
+                i.child(1).unwrap_float().write(j as f32);
+                i.write(1);
             }
         }
 
         let k = root.child(12).unwrap_binary();
         for _ in 0..batch_size {
-            k.write(Some(b"abc"));
+            k.write(b"abc");
         }
 
         for _ in 0..batch_size {
-            root.write(true);
+            root.write();
         }
         writer.write_batch(batch_size as u64)?;
         
         let data = writer.data();
         let root = data.unwrap_struct();
-        root.write(false);
+        root.write_null();
         writer.write_batch(1)?;
     }
     writer.finish()?;

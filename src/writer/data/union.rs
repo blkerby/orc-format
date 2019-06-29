@@ -8,7 +8,7 @@ use crate::writer::encoder::{BooleanRLE, ByteRLE};
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, GenericStatistics};
 use crate::writer::data::common::BaseData;
-use crate::writer::data::Data;
+use crate::writer::data::{GenericData, Data};
 
 pub struct UnionData {
     column_id: u32,
@@ -52,17 +52,24 @@ impl UnionData {
         &mut self.children[i]
     }
 
-    pub fn write(&mut self, present: bool, tag: usize) {
+    pub fn write(&mut self, tag: usize) {
         if tag > self.child_counts.len() {
             panic!("tag ({}) out of range", tag);
         }
-        self.present.write(present);
+        self.present.write(true);
         self.tags.write(tag as u8);
         self.child_counts[tag] += 1;
-        self.stripe_stats.update(present);
+        self.stripe_stats.update();
     }
 
     pub fn column_id(&self) -> u32 { self.column_id }
+}
+
+impl GenericData for UnionData {
+    fn write_null(&mut self) {
+        self.present.write(false);
+        self.stripe_stats.update_null();
+    }
 }
 
 impl BaseData for UnionData {

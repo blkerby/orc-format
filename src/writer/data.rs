@@ -7,7 +7,7 @@ use super::stripe::StreamInfo;
 use super::statistics::Statistics;
 use crate::writer::count_write::CountWrite;
 
-pub use common::BaseData;
+pub use common::{GenericData, BaseData};
 pub use boolean::BooleanData;
 pub use long::LongData;
 pub use float::FloatData;
@@ -116,6 +116,25 @@ impl Data {
 
     pub fn unwrap_union(&mut self) -> &mut UnionData {
         if let Data::Union(x) = self { x } else { unreachable!() }
+    }
+}
+
+impl GenericData for Data {
+    fn write_null(&mut self) {
+        match self {
+            Data::Boolean(x) => x.write_null(),
+            Data::Long(x) => x.write_null(),
+            Data::Float(x) => x.write_null(),
+            Data::Double(x) => x.write_null(),
+            Data::Timestamp(x) => x.write_null(),
+            Data::Decimal64(x) => x.write_null(),
+            Data::String(x) => x.write_null(),
+            Data::Binary(x) => x.write_null(),
+            Data::Struct(x) => x.write_null(),
+            Data::List(x) => x.write_null(),
+            Data::Map(x) => x.write_null(),
+            Data::Union(x) => x.write_null(),
+        }
     }
 }
 

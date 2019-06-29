@@ -8,7 +8,7 @@ use crate::writer::compression::CompressionStream;
 use crate::writer::encoder::{BooleanRLE, SignedIntRLEv1, VarInt};
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, Decimal64Statistics};
-use crate::writer::data::common::BaseData;
+use crate::writer::data::common::{GenericData, BaseData};
 
 
 pub struct Decimal64Data {
@@ -42,23 +42,23 @@ impl Decimal64Data {
         } else { unreachable!() }
     }
 
-    pub fn write(&mut self, x: Option<i64>) {
-        match x {
-            Some(y) => {
-                self.present.write(true);
-                y.write_varint(&mut self.data);
-                self.secondary_scale.write(self.scale as i64);
-            }
-            None => { 
-                self.present.write(false); 
-            }
-        }
+    pub fn write(&mut self, x: i64) {
+        self.present.write(true);
+        x.write_varint(&mut self.data);
+        self.secondary_scale.write(self.scale as i64);
         self.stripe_stats.update(x);
     }
 
     pub fn precision(&self) -> u32 { self.precision }
 
     pub fn scale(&self) -> u32 { self.scale }
+}
+
+impl GenericData for Decimal64Data {
+    fn write_null(&mut self) {
+        self.present.write(false);
+        self.stripe_stats.update_null();
+    }
 }
 
 impl BaseData for Decimal64Data {

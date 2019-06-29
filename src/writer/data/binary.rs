@@ -7,7 +7,7 @@ use crate::writer::compression::CompressionStream;
 use crate::writer::encoder::{BooleanRLE, UnsignedIntRLEv1};
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, BinaryStatistics};
-use crate::writer::data::common::BaseData;
+use crate::writer::data::common::{BaseData, GenericData};
 
 pub struct BinaryData {
     pub(crate) column_id: u32,
@@ -30,18 +30,18 @@ impl BinaryData {
         }
     }
 
-    pub fn write(&mut self, x: Option<&[u8]>) {
-        match x {
-            Some(xv) => {
-                self.present.write(true);
-                self.data.write_bytes(xv);
-                self.lengths.write(xv.len() as u64);
-            }
-            None => { 
-                self.present.write(false); 
-            }
-        }
+    pub fn write(&mut self, x: &[u8]) {
+        self.present.write(true);
+        self.data.write_bytes(x);
+        self.lengths.write(x.len() as u64);
         self.stripe_stats.update(x);
+    }
+}
+
+impl GenericData for BinaryData {
+    fn write_null(&mut self) {
+        self.present.write(false);
+        self.stripe_stats.update_null();
     }
 }
 

@@ -121,6 +121,19 @@ impl Statistics {
 }
 
 impl BaseStatistics for Statistics {
+    fn update_null(&mut self) {
+        match self {
+            Statistics::Boolean(x) => x.update_null(),
+            Statistics::Long(x) => x.update_null(),
+            Statistics::Double(x) => x.update_null(),
+            Statistics::Decimal64(x) => x.update_null(),
+            Statistics::Timestamp(x) => x.update_null(),
+            Statistics::String(x) => x.update_null(),
+            Statistics::Binary(x) => x.update_null(),
+            Statistics::Generic(x) => x.update_null(),
+        }
+    }
+
     fn num_values(&self) -> u64 {
         match self {
             Statistics::Boolean(x) => x.num_values(),

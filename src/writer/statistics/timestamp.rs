@@ -42,17 +42,19 @@ impl TimestampStatistics {
         }
     }
 
-    pub fn update(&mut self, x: Option<i64>) {
+    pub fn update(&mut self, x: i64) {
         self.num_values += 1;
-        self.num_present += x.is_some() as u64;
-        if x.is_some() {
-            merge_min(&mut self.min_epoch_millis, x);
-            merge_max(&mut self.max_epoch_millis, x);
-        }
+        self.num_present += 1;
+        merge_min(&mut self.min_epoch_millis, Some(x));
+        merge_max(&mut self.max_epoch_millis, Some(x));
     }
 }
 
 impl BaseStatistics for TimestampStatistics {
+    fn update_null(&mut self) {
+        self.num_values += 1;
+    }
+
     fn num_values(&self) -> u64 { self.num_values }
 
     fn num_present(&self) -> u64 { self.num_present }

@@ -7,7 +7,7 @@ use crate::writer::count_write::CountWrite;
 use crate::writer::encoder::{BooleanRLE, SignedIntRLEv1};
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, LongStatistics};
-use crate::writer::data::common::BaseData;
+use crate::writer::data::common::{GenericData, BaseData};
 
 
 pub struct LongData {
@@ -31,21 +31,21 @@ impl LongData {
         }
     }
 
-    pub fn write(&mut self, x: Option<i64>) {
-        match x {
-            Some(y) => {
-                self.present.write(true);
-                self.data.write(y);
-            }
-            None => { 
-                self.present.write(false); 
-            }
-        }
+    pub fn write(&mut self, x: i64) {
+        self.present.write(true);
+        self.data.write(x);
         self.stripe_stats.update(x);
     }
 
     pub fn schema(&self) -> &Schema {
         &self.schema
+    }
+}
+
+impl GenericData for LongData {
+    fn write_null(&mut self) {
+        self.present.write(false);
+        self.stripe_stats.update_null();
     }
 }
 

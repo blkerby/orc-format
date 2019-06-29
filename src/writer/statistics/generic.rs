@@ -14,13 +14,17 @@ impl GenericStatistics {
         }
     }
 
-    pub fn update(&mut self, present: bool) {
+    pub fn update(&mut self) {
         self.num_values += 1;
-        self.num_present += present as u64;        
+        self.num_present += 1;
     }
 }
 
 impl BaseStatistics for GenericStatistics {
+    fn update_null(&mut self) {
+        self.num_values += 1;
+    }
+
     fn num_values(&self) -> u64 { self.num_values }
 
     fn num_present(&self) -> u64 { self.num_present }

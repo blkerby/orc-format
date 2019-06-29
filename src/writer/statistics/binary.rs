@@ -16,16 +16,18 @@ impl BinaryStatistics {
         }
     }
 
-    pub fn update(&mut self, x: Option<&[u8]>) {
+    pub fn update(&mut self, x: &[u8]) {
         self.num_values += 1;
-        self.num_present += x.is_some() as u64;
-        if let Some(xv) = x {
-            self.sum_lengths += xv.len() as u64;
-        }   
+        self.num_present += 1;
+        self.sum_lengths += x.len() as u64;
     }
 }
 
 impl BaseStatistics for BinaryStatistics {
+    fn update_null(&mut self) {
+        self.num_values += 1;
+    }
+
     fn num_values(&self) -> u64 { self.num_values }
 
     fn num_present(&self) -> u64 { self.num_present }

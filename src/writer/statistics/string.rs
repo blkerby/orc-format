@@ -44,18 +44,20 @@ impl StringStatistics {
         }
     }
 
-    pub fn update(&mut self, x: Option<&str>) {
+    pub fn update(&mut self, x: &str) {
         self.num_values += 1;
-        self.num_present += x.is_some() as u64;
-        merge_min(&mut self.min, x);
-        merge_max(&mut self.max, x);
-        if let Some(xv) = x {
-            self.sum_lengths += xv.len() as u64;
-        }   
+        self.num_present += 1;
+        merge_min(&mut self.min, Some(x));
+        merge_max(&mut self.max, Some(x));
+        self.sum_lengths += x.len() as u64;
     }
 }
 
 impl BaseStatistics for StringStatistics {
+    fn update_null(&mut self) {
+        self.num_values += 1;
+    }
+
     fn num_values(&self) -> u64 { self.num_values }
 
     fn num_present(&self) -> u64 { self.num_present }

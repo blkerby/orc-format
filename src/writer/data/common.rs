@@ -5,7 +5,11 @@ use crate::writer::count_write::CountWrite;
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::Statistics;
 
-pub trait BaseData {
+pub trait GenericData {
+    fn write_null(&mut self);
+}
+
+pub trait BaseData: GenericData {
     fn column_id(&self) -> u32;
     fn write_index_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()>;
     fn write_data_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()>;

@@ -6,7 +6,7 @@ use crate::writer::count_write::CountWrite;
 use crate::writer::encoder::{BooleanRLE, SignedIntRLEv1, UnsignedIntRLEv1};
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, TimestampStatistics};
-use crate::writer::data::common::BaseData;
+use crate::writer::data::common::{GenericData, BaseData};
 
 
 pub struct TimestampData {
@@ -57,12 +57,14 @@ impl TimestampData {
         self.present.write(true);
         self.seconds.write(sec_epoch);
         self.nanos.write((nanos_val << 3 | trailing_zeros) as u64);
-        self.stripe_stats.update(Some(sec_epoch * 1000 + (nanos / 1000000) as i64));
+        self.stripe_stats.update(sec_epoch * 1000 + (nanos / 1000000) as i64);
     }
+}
 
-    pub fn write_null(&mut self) {
+impl GenericData for TimestampData {
+    fn write_null(&mut self) {
         self.present.write(false);
-        self.stripe_stats.update(None);
+        self.stripe_stats.update_null();
     }
 }
 

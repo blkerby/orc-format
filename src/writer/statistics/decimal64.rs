@@ -59,12 +59,12 @@ impl Decimal64Statistics {
         }
     }
 
-    pub fn update(&mut self, x: Option<i64>) {
+    pub fn update(&mut self, x: i64) {
         self.num_values += 1;
-        self.num_present += x.is_some() as u64;
-        merge_min(&mut self.min, x);
-        merge_max(&mut self.max, x);
-        if let Some(xv) = x { merge_sum(&mut self.sum, Some(xv)) };
+        self.num_present += 1;
+        merge_min(&mut self.min, Some(x));
+        merge_max(&mut self.max, Some(x));
+        merge_sum(&mut self.sum, Some(x));
     }
 
     pub fn format(&self, mut val: i64) -> String {
@@ -85,6 +85,10 @@ impl Decimal64Statistics {
 }
 
 impl BaseStatistics for Decimal64Statistics {
+    fn update_null(&mut self) {
+        self.num_values += 1;
+    }
+
     fn num_values(&self) -> u64 { self.num_values }
 
     fn num_present(&self) -> u64 { self.num_present }

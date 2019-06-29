@@ -8,7 +8,7 @@ use crate::writer::encoder::{BooleanRLE, UnsignedIntRLEv1};
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, GenericStatistics};
 use crate::writer::data::common::BaseData;
-use crate::writer::data::Data;
+use crate::writer::data::{GenericData, Data};
 
 pub struct MapData {
     column_id: u32,
@@ -49,18 +49,21 @@ impl MapData {
         (&mut self.keys, &mut self.values)
     }
 
-    pub fn write(&mut self, len: Option<u64>) {
-        if let Some(l) = len {
-            self.present.write(true);
-            self.lengths.write(l);
-            self.num_child_values += l;
-        } else {
-            self.present.write(false);
-        }
-        self.stripe_stats.update(len.is_some());
+    pub fn write(&mut self, len: u64) {
+        self.present.write(true);
+        self.lengths.write(len);
+        self.num_child_values += len;
+        self.stripe_stats.update();
     }
 
     pub fn column_id(&self) -> u32 { self.column_id }
+}
+
+impl GenericData for MapData {
+    fn write_null(&mut self) {
+        self.present.write(false);
+        self.stripe_stats.update_null();
+    }
 }
 
 impl BaseData for MapData {

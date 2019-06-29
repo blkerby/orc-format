@@ -16,19 +16,21 @@ impl BooleanStatistics {
         }
     }
 
-    pub fn update(&mut self, x: Option<bool>) {
+    pub fn update(&mut self, x: bool) {
         self.num_values += 1;
-        if let Some(xv) = x {
-            if xv {
-                self.num_true += 1;
-            } else {
-                self.num_false += 1;
-            }
+        if x {
+            self.num_true += 1;
+        } else {
+            self.num_false += 1;
         }
     }
 }
 
 impl BaseStatistics for BooleanStatistics {
+    fn update_null(&mut self) {
+        self.num_values += 1;
+    }
+
     fn num_values(&self) -> u64 { self.num_values }
 
     fn num_present(&self) -> u64 { self.num_true + self.num_false }
