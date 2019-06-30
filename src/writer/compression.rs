@@ -109,11 +109,13 @@ impl CompressionStream {
                 // the input. In this case, the ORC spec requires that we instead store the
                 // original uncompressed data. With a little fancier bookkeeping, we could
                 // avoid copying here and just keep the data where it already is (in self.buf).
-                self.output[i..(i + self.buf.len())].copy_from_slice(&self.buf);
+                let new_output_len = i + self.buf.len();
+                self.output[i..new_output_len].copy_from_slice(&self.buf);
                 self.output_block_info.push(BlockInfo {
                     is_original: true,
                     length: self.buf.len(),
                 });
+                self.output.resize(new_output_len);
             } else {
                 self.output_block_info.push(BlockInfo {
                     is_original: false,
@@ -161,6 +163,8 @@ impl CompressionStream {
                 out.write_all(&self.output[i..(i + info.length)])?;
                 i += info.length;
             }
+            self.output.resize(0);
+            self.output_block_info.clear();
             Ok(())
         } else {
             out.write_all(&self.buf)?;

@@ -71,15 +71,6 @@ impl BaseData for StringData {
             });
         }
         
-        let data_start_pos = out.pos();
-        self.data.finish(out)?;
-        let data_len = (out.pos() - data_start_pos) as u64;
-        stream_infos_out.push(StreamInfo {
-            kind: orc_proto::Stream_Kind::DATA,
-            column_id: self.column_id,
-            length: data_len,
-        });
-
         let lengths_start_pos = out.pos();
         self.lengths.finish(out)?;
         let lengths_len = (out.pos() - lengths_start_pos) as u64;
@@ -87,6 +78,15 @@ impl BaseData for StringData {
             kind: orc_proto::Stream_Kind::LENGTH,
             column_id: self.column_id,
             length: lengths_len,
+        });
+
+        let data_start_pos = out.pos();
+        self.data.finish(out)?;
+        let data_len = (out.pos() - data_start_pos) as u64;
+        stream_infos_out.push(StreamInfo {
+            kind: orc_proto::Stream_Kind::DATA,
+            column_id: self.column_id,
+            length: data_len,
         });
 
         Ok(())

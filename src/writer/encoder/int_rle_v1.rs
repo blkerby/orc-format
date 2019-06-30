@@ -123,3 +123,46 @@ impl UnsignedIntRLEv1 {
         self.0.estimated_size()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::writer::compression::NoCompression;
+
+    #[test]
+    fn test_signed_int_rle_v1() {
+        let cases = vec![
+            (vec![], vec![]),
+            (vec![10], vec![255, 20]),
+            (vec![0, -1, 1, -2, 2], vec![251, 0, 1, 2, 3, 4]),
+            (vec![10, 10, 10, 10], vec![1, 0, 20]),
+            (vec![10, 15, 20, 25], vec![1, 5, 20]),
+            (vec![10, 15, 20, 25, 0], vec![1, 5, 20, 255, 0]),
+        ];
+        let mut rle = SignedIntRLEv1::new(&NoCompression::new().build());
+        for (input, expected_output) in cases {
+            for x in input {
+                rle.write(x);
+            }
+            let mut out: Vec<u8> = Vec::new();
+            rle.finish(&mut out).unwrap();
+            assert_eq!(out, expected_output);
+        }
+    }
+
+    #[test]
+    fn test_unsigned_int_rle_v1() {
+        let cases = vec![
+            (vec![7; 100], vec![97, 0, 7])
+        ];
+        let mut rle = UnsignedIntRLEv1::new(&NoCompression::new().build());
+        for (input, expected_output) in cases {
+            for x in input {
+                rle.write(x);
+            }
+            let mut out: Vec<u8> = Vec::new();
+            rle.finish(&mut out).unwrap();
+            assert_eq!(out, expected_output);
+        }
+    }
+}

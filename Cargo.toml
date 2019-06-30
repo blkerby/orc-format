@@ -11,3 +11,6 @@ protoc-rust = "2.6.2"
 protobuf = "2.6.2"
 snap = "0.2.5"
 byteorder = "1.3.2"
+
+[dev-dependencies]
+rand = "0.7.0"

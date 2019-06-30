@@ -33,6 +33,7 @@ impl BooleanRLE {
     pub fn finish<W: Write>(&mut self, out: &mut W) -> Result<()> {
         if self.cnt > 0 {
             self.byte_rle.write(self.buf << (8 - self.cnt));
+            self.cnt = 0;
         }
         self.byte_rle.finish(out)
     }
@@ -42,3 +43,26 @@ impl BooleanRLE {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::writer::NoCompression;
+
+    #[test]
+    fn test_boolean_rle() {
+        let cases = vec![
+            (vec![], vec![]),
+            (vec![true, false, true, false, true, false, false, false, true], vec![254, 0b10101000, 0b10000000]),
+            (vec![false; 80], vec![7, 0]),
+        ];
+        let mut rle = BooleanRLE::new(&NoCompression::new().build());
+        for (input, expected_output) in cases {
+            for x in input {
+                rle.write(x);
+            }
+            let mut out: Vec<u8> = Vec::new();
+            rle.finish(&mut out).unwrap();
+            assert_eq!(out, expected_output);
+        }
+    }
+}

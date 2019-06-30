@@ -33,7 +33,11 @@ impl TimestampData {
         }
     }
 
-    pub fn write_nanos(&mut self, sec_epoch: i64, nanos: u32) {
+    pub fn write_nanos_epoch(&mut self, sec_epoch: i64, nanos: u32) {
+        self.write_nanos(sec_epoch + Self::EPOCH_SECONDS, nanos);
+    }
+
+    pub fn write_nanos(&mut self, sec: i64, nanos: u32) {
         let mut trailing_zeros = 0;
         let mut nanos_val = nanos;
 
@@ -55,9 +59,9 @@ impl TimestampData {
         }
 
         self.present.write(true);
-        self.seconds.write(sec_epoch);
+        self.seconds.write(sec);
         self.nanos.write((nanos_val << 3 | trailing_zeros) as u64);
-        self.stripe_stats.update(sec_epoch * 1000 + (nanos / 1000000) as i64);
+        self.stripe_stats.update(sec * 1000 + (nanos / 1000000) as i64);
     }
 }
 

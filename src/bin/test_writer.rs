@@ -33,7 +33,7 @@ fn main() -> Result<()> {
         let x = root.child(0).unwrap_long();
         x.write_null();
         for j in 0..batch_size - 1 {
-            x.write(n * batch_size + j);
+            x.write(n * batch_size + j % 2);
         }
         let y = root.child(1).unwrap_long();
         for j in 0..batch_size - 1 {
@@ -41,7 +41,8 @@ fn main() -> Result<()> {
         }
         y.write_null();
         let z = root.child(2).unwrap_string();
-        for j in 0..batch_size {
+        z.write_null();
+        for j in 0..(batch_size - 1) {
             let s = format!("hello {}", j / 3);
             z.write(&s);
         }

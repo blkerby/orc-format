@@ -72,3 +72,34 @@ impl ByteRLE {
         self.sink.estimated_size()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::iter;
+    use crate::writer::NoCompression;
+
+    #[test]
+    fn test_byte_rle() {
+        let cases = vec![
+            (vec![], vec![]),
+            (vec![10], vec![255, 10]),
+            (vec![10, 20, 30], vec![253, 10, 20, 30]),
+            (vec![10, 10, 10], vec![0, 10]),
+            (vec![10, 20, 20, 20, 20], vec![255, 10, 1, 20]),
+            (vec![10, 10, 10, 10, 10, 20, 30], vec![2, 10, 254, 20, 30]),
+            (vec![10, 20, 20, 30], vec![252, 10, 20, 20, 30]),
+            (iter::repeat(10).take(131).collect(), vec![127, 10, 255, 10]),
+            ((0..140).collect(), [vec![128], (0..128).collect(), vec![244], (128..140).collect()].concat()),
+        ];
+        let mut rle = ByteRLE::new(&NoCompression::new().build());
+        for (input, expected_output) in cases {
+            for x in input {
+                rle.write(x);
+            }
+            let mut out: Vec<u8> = Vec::new();
+            rle.finish(&mut out).unwrap();
+            assert_eq!(out, expected_output);
+        }
+    }
+}

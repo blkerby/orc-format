@@ -49,5 +49,6 @@ impl Compressor for SnappyCompressor {
         output.ensure_size(current_len + max_additional_len);
         let additional_len = self.encoder.compress(input, &mut output[current_len..]).unwrap();
         output.resize(current_len + additional_len);
+        println!("Snappy input {} bytes -> output {} bytes", input.len(), additional_len);
     }
 }
