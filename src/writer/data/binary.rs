@@ -107,8 +107,4 @@ impl BaseData for BinaryData {
                 self.column_id, rows_written, expected_row_count);
         }
     }
-
-    fn reset(&mut self) {
-        self.stripe_stats = BinaryStatistics::new();
-    }
 }

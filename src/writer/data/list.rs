@@ -116,9 +116,4 @@ impl BaseData for ListData {
         self.present.estimated_size() + self.lengths.estimated_size() + 
             self.child.estimated_size()
     }
-
-    fn reset(&mut self) {
-        self.stripe_stats = GenericStatistics::new();
-        self.child.reset();
-    }
 }

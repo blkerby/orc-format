@@ -8,7 +8,7 @@ use super::count_write::CountWrite;
 use super::Config;
 use super::data::{Data, BaseData};
 use super::statistics::Statistics;
-use super::compression::{CompressionStream, Compression};
+use super::compression::CompressionStream;
 
 #[derive(Debug)]
 pub struct StripeInfo {
@@ -28,19 +28,21 @@ pub struct StreamInfo {
 }
 
 pub struct Stripe {
-    pub compression: Compression,
     pub data: Data,
     pub offset: u64,
     pub num_rows: u64,
+    pub schema: Schema,
+    pub config: Config,
 }
 
 impl Stripe {
     pub fn new(schema: &Schema, config: &Config) -> Self {
         Stripe {
-            compression: config.compression.clone(),
             data: Data::new(schema, config, &mut 0),
             offset: 3,
             num_rows: 0,
+            schema: schema.clone(),
+            config: config.clone(),
         }
     }
 
@@ -51,7 +53,7 @@ impl Stripe {
     }
 
     fn write_footer<W: Write>(&mut self, out: &mut W, stream_infos: &[StreamInfo]) -> Result<()> {
-        let mut compressed_stream = CompressionStream::new(&self.compression);
+        let mut compressed_stream = CompressionStream::new(&self.config.compression);
         let mut coded_out = CodedOutputStream::new(&mut compressed_stream);
         let mut footer = orc_proto::StripeFooter::new();
         
@@ -104,7 +106,7 @@ impl Stripe {
         });
         self.offset += index_length + data_length + footer_length;
         self.num_rows = 0;
-        self.data.reset();
+        self.data = Data::new(&self.schema, &self.config, &mut 0);
         Ok(())
     }
 }

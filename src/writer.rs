@@ -20,6 +20,7 @@ mod statistics;
 mod count_write;
 
 
+#[derive(Clone)]
 pub struct Config {
     row_index_stride: u32,
     compression: Compression,

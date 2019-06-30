@@ -17,5 +17,4 @@ pub trait BaseData: GenericData {
     fn statistics(&self, out: &mut Vec<Statistics>);
     fn verify_row_count(&self, num_rows: u64);
     fn estimated_size(&self) -> usize;
-    fn reset(&mut self);
 }

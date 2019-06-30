@@ -130,10 +130,4 @@ impl BaseData for MapData {
         self.present.estimated_size() + self.lengths.estimated_size() + 
             self.keys.estimated_size() + self.values.estimated_size()
     }
-
-    fn reset(&mut self) {
-        self.stripe_stats = GenericStatistics::new();
-        self.keys.reset();
-        self.values.reset();
-    }
 }

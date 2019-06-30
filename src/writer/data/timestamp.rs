@@ -133,8 +133,4 @@ impl BaseData for TimestampData {
                 self.column_id, rows_written, expected_row_count);
         }
     }
-
-    fn reset(&mut self) {
-        self.stripe_stats = TimestampStatistics::new();
-    }
 }

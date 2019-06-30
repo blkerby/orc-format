@@ -131,11 +131,4 @@ impl BaseData for StructData {
         }
         size
     }
-
-    fn reset(&mut self) {
-        self.stripe_stats = GenericStatistics::new();
-        for child in &mut self.children {
-            child.reset();
-        }
-    }
 }

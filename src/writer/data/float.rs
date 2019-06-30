@@ -96,8 +96,4 @@ impl BaseData for FloatData {
                 self.column_id, rows_written, expected_row_count);
         }
     }
-
-    fn reset(&mut self) {
-        self.stripe_stats = DoubleStatistics::new();
-    }
 }

@@ -259,21 +259,4 @@ impl BaseData for Data {
             Data::Union(x) => x.estimated_size(),
         }
     }
-
-    fn reset(&mut self) {
-        match self {
-            Data::Boolean(x) => x.reset(),
-            Data::Long(x) => x.reset(),
-            Data::Float(x) => x.reset(),
-            Data::Double(x) => x.reset(),
-            Data::Timestamp(x) => x.reset(),
-            Data::Decimal64(x) => x.reset(),
-            Data::String(x) => x.reset(),
-            Data::Binary(x) => x.reset(),
-            Data::Struct(x) => x.reset(),
-            Data::List(x) => x.reset(),
-            Data::Map(x) => x.reset(),
-            Data::Union(x) => x.reset(),
-        }
-    }
 }

@@ -144,12 +144,4 @@ impl BaseData for UnionData {
         }
         size
     }
-
-    fn reset(&mut self) {
-        self.stripe_stats = GenericStatistics::new();
-        self.child_counts = vec![0; self.children.len()];
-        for child in &mut self.children {
-            child.reset();
-        }
-    }
 }

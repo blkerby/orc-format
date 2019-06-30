@@ -122,8 +122,4 @@ impl BaseData for Decimal64Data {
                 self.column_id, rows_written, expected_row_count);
         }
     }
-
-    fn reset(&mut self) {
-        self.stripe_stats = Decimal64Statistics::new(self.scale);
-    }
 }
