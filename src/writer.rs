@@ -79,6 +79,10 @@ impl<W: Write> Writer<W> {
         &mut self.current_stripe.data
     }
 
+    pub fn inner(&self) -> &W {
+        &self.inner.inner
+    }
+
     pub fn write_batch(&mut self, num_rows: u64) -> Result<()> {
         self.current_stripe.write_batch(num_rows)?;
         if self.current_stripe.data.estimated_size() > self.config.stripe_size {
