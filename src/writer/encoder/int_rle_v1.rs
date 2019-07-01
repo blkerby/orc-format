@@ -21,6 +21,15 @@ impl<T: VarInt> IntRLEv1<T> {
         }
     }
 
+    pub fn record_position(&self, out: &mut Vec<u64>) {
+        self.sink.record_position(out);
+        if self.run_len > 0 {
+            out.push(self.run_len as u64);
+        } else {
+            out.push(self.buf.len() as u64);
+        }
+    }
+
     #[inline(always)]
     pub fn write(&mut self, x: T) {
         let len = self.buf.len();
@@ -84,6 +93,7 @@ impl<T: VarInt> IntRLEv1<T> {
 
 pub struct SignedIntRLEv1(IntRLEv1<i64>);
 
+// When it arrives to Rust, "delegation" could be used to eliminate this boilerplate:
 impl SignedIntRLEv1 {
     pub fn new(compression: &Compression) -> Self {
         SignedIntRLEv1(IntRLEv1::new(compression))
@@ -96,6 +106,10 @@ impl SignedIntRLEv1 {
 
     pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<()> {
         self.0.finish(w)
+    }
+
+    pub fn record_position(&self, out: &mut Vec<u64>) {
+        self.0.record_position(out);
     }
 
     pub fn estimated_size(&self) -> usize {
@@ -113,6 +127,10 @@ impl UnsignedIntRLEv1 {
     #[inline(always)]
     pub fn write(&mut self, x: u64) {
         self.0.write(x);
+    }
+
+    pub fn record_position(&self, out: &mut Vec<u64>) {
+        self.0.record_position(out);
     }
 
     pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<()> {

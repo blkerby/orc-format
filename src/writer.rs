@@ -30,17 +30,16 @@ pub struct Config {
 impl Config {
     pub fn new() -> Config {
         Config {
-            row_index_stride: 0,
+            row_index_stride: 10000,
             compression: NoCompression::new().build(),
             stripe_size: 67108864,
         }
     }
 
-    // (Row indices are not yet implemented)
-    // pub fn with_row_index_stride(mut self, row_index_stride: u32) -> Self {
-    //     self.row_index_stride = row_index_stride;
-    //     self
-    // }
+    pub fn with_row_index_stride(mut self, row_index_stride: u32) -> Self {
+        self.row_index_stride = row_index_stride;
+        self
+    }
 
     pub fn with_compression(mut self, compression: Compression) -> Self {
         self.compression = compression;

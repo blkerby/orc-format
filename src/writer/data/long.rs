@@ -1,4 +1,5 @@
 use std::io::{Write, Result};
+use std::mem;
 
 use crate::protos::orc_proto;
 use crate::schema::Schema;
@@ -7,7 +8,7 @@ use crate::writer::count_write::CountWrite;
 use crate::writer::encoder::{BooleanRLE, SignedIntRLEv1};
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, LongStatistics};
-use crate::writer::data::common::{GenericData, BaseData};
+use crate::writer::data::common::{GenericData, BaseData, write_index};
 
 
 pub struct LongData {
@@ -15,26 +16,63 @@ pub struct LongData {
     present: BooleanRLE,
     data: SignedIntRLEv1,
     stripe_stats: LongStatistics,
+    row_group_stats: LongStatistics,
+    row_group_position: Vec<u64>,
+    row_index_entries: Vec<orc_proto::RowIndexEntry>,
     schema: Schema,
+    config: Config,
 }
 
 impl LongData {
     pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
-        Self {
+        let mut out = Self {
             column_id: cid,
             present: BooleanRLE::new(&config.compression),
             data: SignedIntRLEv1::new(&config.compression),
             stripe_stats: LongStatistics::new(),
+            row_group_stats: LongStatistics::new(),
+            row_group_position: Vec::new(),
+            row_index_entries: Vec::new(),
             schema: schema.clone(),
+            config: config.clone(),
+        };
+        out.record_position();
+        out
+    }
+
+    fn record_position(&mut self) {
+        self.row_group_position.clear();
+        self.present.record_position(&mut self.row_group_position);
+        self.data.record_position(&mut self.row_group_position);
+    }
+
+    fn finish_row_group(&mut self) {
+        if self.row_group_stats.num_values > 0 {
+            self.stripe_stats.merge(&self.row_group_stats);
+            
+            let mut row_index_entry = orc_proto::RowIndexEntry::new();
+            row_index_entry.set_positions(self.row_group_position.clone());
+            row_index_entry.set_statistics(Statistics::Long(self.row_group_stats).to_proto());
+            self.row_index_entries.push(row_index_entry);
+            
+            self.record_position();
+            self.row_group_stats = LongStatistics::new();
+        }
+    }
+
+    fn check_row_group(&mut self) {
+        if self.row_group_stats.num_values == self.config.row_index_stride as u64 {
+            self.finish_row_group();
         }
     }
 
     pub fn write(&mut self, x: i64) {
         self.present.write(true);
         self.data.write(x);
-        self.stripe_stats.update(x);
+        self.row_group_stats.update(x);
+        self.check_row_group();
     }
 
     pub fn schema(&self) -> &Schema {
@@ -45,14 +83,20 @@ impl LongData {
 impl GenericData for LongData {
     fn write_null(&mut self) {
         self.present.write(false);
-        self.stripe_stats.update_null();
+        self.row_group_stats.update_null();
+        self.check_row_group();
     }
 }
+
 
 impl BaseData for LongData {
     fn column_id(&self) -> u32 { self.column_id }
 
-    fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
+    fn write_index_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
+        self.finish_row_group();
+        let row_index_entries = mem::replace(&mut self.row_index_entries, Vec::new());
+        println!("row_index {:?}", &row_index_entries);
+        write_index(row_index_entries, self.column_id(), &self.config.compression, out, stream_infos_out)?;
         Ok(())
     }
 
@@ -95,7 +139,7 @@ impl BaseData for LongData {
     }
 
     fn verify_row_count(&self, expected_row_count: u64) {
-        let rows_written = self.stripe_stats.num_values();
+        let rows_written = self.stripe_stats.num_values() + self.row_group_stats.num_values();
         if rows_written != expected_row_count {
             panic!("In column {} (type Long), the number of values written ({}) does not match the expected number ({})", 
                 self.column_id, rows_written, expected_row_count);

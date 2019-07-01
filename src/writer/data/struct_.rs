@@ -71,7 +71,10 @@ impl GenericData for StructData {
 impl BaseData for StructData {
     fn column_id(&self) -> u32 { self.column_id }
 
-    fn write_index_streams<W: Write>(&mut self, _out: &mut CountWrite<W>, _stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
+    fn write_index_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
+        for child in &mut self.children {
+            child.write_index_streams(out, stream_infos_out)?;
+        }
         Ok(())
     }
 

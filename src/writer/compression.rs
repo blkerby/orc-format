@@ -96,6 +96,15 @@ impl CompressionStream {
         }
     }
 
+    pub fn record_position(&self, out: &mut Vec<u64>) {
+        if let Some(_) = &self.compressor {
+            // Write the offset to the start of the compression block
+            out.push((self.output.len() + 3*self.output_block_info.len()) as u64);
+        }
+        // Write the additional offset within the compression block
+        out.push(self.buf.len() as u64);
+    }
+
     fn finish_block(&mut self) {
         if self.buf.len() == 0 {
             return;

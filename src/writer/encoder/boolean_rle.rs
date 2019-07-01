@@ -19,6 +19,11 @@ impl BooleanRLE {
         }
     }
 
+    pub fn record_position(&self, out: &mut Vec<u64>) {
+        self.byte_rle.record_position(out);
+        out.push(self.cnt as u64);
+    }
+
     #[inline(always)]
     pub fn write(&mut self, x: bool) {
         self.buf = self.buf << 1 | (x as u8);

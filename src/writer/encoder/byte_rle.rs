@@ -19,6 +19,15 @@ impl ByteRLE {
         }
     }
 
+    pub fn record_position(&self, out: &mut Vec<u64>) {
+        self.sink.record_position(out);
+        if self.run_len > 0 {
+            out.push(self.run_len as u64);
+        } else {
+            out.push(self.buf_len as u64);
+        }
+    }
+
     #[inline(always)]
     pub fn write(&mut self, x: u8) {
         if self.buf_len == 128 || self.run_len == 130 {
