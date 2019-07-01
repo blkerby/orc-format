@@ -10,9 +10,9 @@ fn main() -> Result<()> {
         Field("y".to_owned(), Schema::Long),
         Field("z".to_owned(), Schema::String),
         Field("a".to_owned(), Schema::Double),
-        // Field("b".to_owned(), Schema::Float),
-        // Field("c".to_owned(), Schema::Date),
-        // Field("d".to_owned(), Schema::Boolean),
+        Field("b".to_owned(), Schema::Float),
+        Field("c".to_owned(), Schema::Date),
+        Field("d".to_owned(), Schema::Boolean),
         // Field("e".to_owned(), Schema::Decimal(15, 2)),
         // Field("f".to_owned(), Schema::List(Box::new(Schema::Long))),
         // Field("g".to_owned(), Schema::Map(Box::new(Schema::String), Box::new(Schema::Boolean))),
@@ -50,18 +50,18 @@ fn main() -> Result<()> {
         for j in 0..batch_size {
             a.write(((j / 3) as f64) * 0.01);
         }
-        // let b = root.child(4).unwrap_float();
-        // for j in 0..batch_size {
-        //     b.write(((j / 3) as f32) * 0.5);
-        // }
-        // let c = root.child(5).unwrap_long();
-        // for j in 0..batch_size {
-        //     c.write(j);
-        // }
-        // let d = root.child(1).unwrap_boolean();
-        // for j in 0..batch_size {
-        //     d.write((j % 3 == 0) as bool);
-        // }
+        let b = root.child(4).unwrap_float();
+        for j in 0..batch_size {
+            b.write(((j / 3) as f32) * 0.5);
+        }
+        let c = root.child(5).unwrap_long();
+        for j in 0..batch_size {
+            c.write(j);
+        }
+        let d = root.child(6).unwrap_boolean();
+        for j in 0..batch_size {
+            d.write((j % 3 == 0) as bool);
+        }
         // let e = root.child(7).unwrap_decimal64();
         // for j in 0..batch_size {
         //     e.write(j - batch_size / 2);

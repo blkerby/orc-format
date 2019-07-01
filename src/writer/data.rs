@@ -71,51 +71,51 @@ impl Data {
     }
 
     pub fn unwrap_boolean(&mut self) -> &mut BooleanData {
-        if let Data::Boolean(x) = self { x } else { unreachable!() }
+        if let Data::Boolean(x) = self { x } else { panic!("unwrap_boolean called on incorrect type of data"); }
     }
 
     pub fn unwrap_long(&mut self) -> &mut LongData {
-        if let Data::Long(x) = self { x } else { unreachable!() }
+        if let Data::Long(x) = self { x } else { panic!("unwrap_long called on incorrect type of data"); }
     }
 
     pub fn unwrap_float(&mut self) -> &mut FloatData {
-        if let Data::Float(x) = self { x } else { unreachable!() }
+        if let Data::Float(x) = self { x } else { panic!("unwrap_float called on incorrect type of data"); }
     }
 
     pub fn unwrap_double(&mut self) -> &mut DoubleData {
-        if let Data::Double(x) = self { x } else { unreachable!() }
+        if let Data::Double(x) = self { x } else { panic!("unwrap_double called on incorrect type of data"); }
     }
 
     pub fn unwrap_timestamp(&mut self) -> &mut TimestampData {
-        if let Data::Timestamp(x) = self { x } else { unreachable!() }
+        if let Data::Timestamp(x) = self { x } else { panic!("unwrap_timestamp called on incorrect type of data"); }
     }
 
     pub fn unwrap_decimal64(&mut self) -> &mut Decimal64Data {
-        if let Data::Decimal64(x) = self { x } else { unreachable!() }
+        if let Data::Decimal64(x) = self { x } else { panic!("unwrap_decimal64 called on incorrect type of data"); }
     }
 
     pub fn unwrap_string(&mut self) -> &mut StringData {
-        if let Data::String(x) = self { x } else { unreachable!() }
+        if let Data::String(x) = self { x } else { panic!("unwrap_string called on incorrect type of data"); }
     }
 
     pub fn unwrap_binary(&mut self) -> &mut BinaryData {
-        if let Data::Binary(x) = self { x } else { unreachable!() }
+        if let Data::Binary(x) = self { x } else { panic!("unwrap_binary called on incorrect type of data"); }
     }
 
     pub fn unwrap_struct(&mut self) -> &mut StructData {
-        if let Data::Struct(x) = self { x } else { unreachable!() }
+        if let Data::Struct(x) = self { x } else { panic!("unwrap_struct called on incorrect type of data"); }
     }
 
     pub fn unwrap_list(&mut self) -> &mut ListData {
-        if let Data::List(x) = self { x } else { unreachable!() }
+        if let Data::List(x) = self { x } else { panic!("unwrap_list called on incorrect type of data"); }
     }
 
     pub fn unwrap_map(&mut self) -> &mut MapData {
-        if let Data::Map(x) = self { x } else { unreachable!() }
+        if let Data::Map(x) = self { x } else { panic!("unwrap_map called on incorrect type of data"); }
     }
 
     pub fn unwrap_union(&mut self) -> &mut UnionData {
-        if let Data::Union(x) = self { x } else { unreachable!() }
+        if let Data::Union(x) = self { x } else { panic!("unwrap_union called on incorrect type of data"); }
     }
 }
 
