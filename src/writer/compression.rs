@@ -86,6 +86,23 @@ pub struct CompressionStream {
     output_block_info: Vec<BlockInfo>,
 }
 
+#[derive(Copy, Clone)]
+pub struct CompressionStreamPosition {
+    // Offset of the start of the compression block (if applicable)
+    block_start: Option<u64>,
+    // Offset within the block
+    offset: u64,
+}
+
+impl CompressionStreamPosition {
+    pub fn record(&self, out: &mut Vec<u64>) {
+        if let Some(x) = self.block_start {
+            out.push(x);
+        }
+        out.push(self.offset);
+    }
+}
+
 impl CompressionStream {
     pub fn new(compression: &Compression) -> Self {
         CompressionStream {
@@ -96,13 +113,13 @@ impl CompressionStream {
         }
     }
 
-    pub fn record_position(&self, out: &mut Vec<u64>) {
-        if let Some(_) = &self.compressor {
-            // Write the offset to the start of the compression block
-            out.push((self.output.len() + 3*self.output_block_info.len()) as u64);
+    pub fn position(&self) -> CompressionStreamPosition {
+        CompressionStreamPosition {
+            block_start: if let Some(_) = &self.compressor {
+                    Some((self.output.len() + 3*self.output_block_info.len()) as u64)
+                } else { None },
+            offset: self.buf.len() as u64,
         }
-        // Write the additional offset within the compression block
-        out.push(self.buf.len() as u64);
     }
 
     fn finish_block(&mut self) {

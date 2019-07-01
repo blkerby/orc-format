@@ -1,5 +1,5 @@
 use std::io::{Write, Result};
-use crate::writer::compression::{Compression, CompressionStream};
+use crate::writer::compression::{Compression, CompressionStream, CompressionStreamPosition};
 use super::varint::VarInt;
 
 struct IntRLEv1<T: VarInt> {
@@ -8,6 +8,19 @@ struct IntRLEv1<T: VarInt> {
     run_len: u8,
     last_val: T,
     delta: i64,
+}
+
+#[derive(Copy, Clone)]
+pub struct IntRLEv1Position {
+    inner: CompressionStreamPosition,
+    rle_offset: u64,
+}
+
+impl IntRLEv1Position {
+    pub fn record(&self, out: &mut Vec<u64>) {
+        self.inner.record(out);
+        out.push(self.rle_offset);
+    }
 }
 
 impl<T: VarInt> IntRLEv1<T> {
@@ -21,12 +34,14 @@ impl<T: VarInt> IntRLEv1<T> {
         }
     }
 
-    pub fn record_position(&self, out: &mut Vec<u64>) {
-        self.sink.record_position(out);
-        if self.run_len > 0 {
-            out.push(self.run_len as u64);
-        } else {
-            out.push(self.buf.len() as u64);
+    pub fn position(&self) -> IntRLEv1Position {
+        IntRLEv1Position {
+            inner: self.sink.position(),
+            rle_offset: if self.run_len > 0 {
+                    self.run_len as u64
+                } else {
+                    self.buf.len() as u64
+                }
         }
     }
 
@@ -108,8 +123,8 @@ impl SignedIntRLEv1 {
         self.0.finish(w)
     }
 
-    pub fn record_position(&self, out: &mut Vec<u64>) {
-        self.0.record_position(out);
+    pub fn position(&self) -> IntRLEv1Position {
+        self.0.position()
     }
 
     pub fn estimated_size(&self) -> usize {
@@ -129,8 +144,8 @@ impl UnsignedIntRLEv1 {
         self.0.write(x);
     }
 
-    pub fn record_position(&self, out: &mut Vec<u64>) {
-        self.0.record_position(out);
+    pub fn position(&self) -> IntRLEv1Position {
+        self.0.position()
     }
 
     pub fn finish<W: Write>(&mut self, w: &mut W) -> Result<()> {

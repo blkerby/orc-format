@@ -1,6 +1,6 @@
 use super::common::BaseStatistics;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct BinaryStatistics {
     pub num_values: u64,
     pub num_present: u64,

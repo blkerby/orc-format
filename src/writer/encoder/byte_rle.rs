@@ -1,4 +1,4 @@
-use crate::writer::compression::{Compression, CompressionStream};
+use crate::writer::compression::{Compression, CompressionStream, CompressionStreamPosition};
 use std::io::{Write, Result};
 
 
@@ -7,6 +7,19 @@ pub struct ByteRLE {
     buf: [u8; 128],
     buf_len: usize,
     run_len: usize,
+}
+
+#[derive(Copy, Clone)]
+pub struct ByteRLEPosition {
+    inner: CompressionStreamPosition,
+    rle_offset: u64,
+}
+
+impl ByteRLEPosition {
+    pub fn record(&self, out: &mut Vec<u64>) {
+        self.inner.record(out);
+        out.push(self.rle_offset);
+    }
 }
 
 impl ByteRLE {
@@ -19,12 +32,14 @@ impl ByteRLE {
         }
     }
 
-    pub fn record_position(&self, out: &mut Vec<u64>) {
-        self.sink.record_position(out);
-        if self.run_len > 0 {
-            out.push(self.run_len as u64);
-        } else {
-            out.push(self.buf_len as u64);
+    pub fn position(&self) -> ByteRLEPosition {
+        ByteRLEPosition {
+            inner: self.sink.position(),
+            rle_offset: if self.run_len > 0 {
+                    self.run_len as u64
+                } else {
+                    self.buf_len as u64
+                }
         }
     }
 

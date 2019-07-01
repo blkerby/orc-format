@@ -1,11 +1,10 @@
 use std::io::{Write, Result};
-use std::mem;
 
 use crate::protos::orc_proto;
 use crate::schema::Schema;
 use crate::writer::Config;
 use crate::writer::count_write::CountWrite;
-use crate::writer::encoder::{BooleanRLE, SignedIntRLEv1};
+use crate::writer::encoder::{BooleanRLE, BooleanRLEPosition, SignedIntRLEv1, IntRLEv1Position};
 use crate::writer::stripe::StreamInfo;
 use crate::writer::statistics::{Statistics, BaseStatistics, LongStatistics};
 use crate::writer::data::common::{GenericData, BaseData, write_index};
@@ -13,52 +12,66 @@ use crate::writer::data::common::{GenericData, BaseData, write_index};
 
 pub struct LongData {
     pub(crate) column_id: u32,
-    present: BooleanRLE,
-    data: SignedIntRLEv1,
+    streams: LongDataStreams,
     stripe_stats: LongStatistics,
     row_group_stats: LongStatistics,
-    row_group_position: Vec<u64>,
-    row_index_entries: Vec<orc_proto::RowIndexEntry>,
+    row_group_position: LongDataPosition,
+    row_index_entries: Vec<LongRowIndexEntry>,
     schema: Schema,
     config: Config,
+}
+
+struct LongDataStreams {
+    present: BooleanRLE,
+    data: SignedIntRLEv1,
+}
+
+#[derive(Copy, Clone)]
+struct LongDataPosition {
+    present: BooleanRLEPosition,
+    data: IntRLEv1Position,
+}
+
+struct LongRowIndexEntry {
+    position: LongDataPosition,
+    stats: LongStatistics,
+}
+
+impl LongDataPosition {
+    pub fn record(&self, include_present: bool, out: &mut Vec<u64>) {
+        if include_present {
+            self.present.record(out);
+        }
+        self.data.record(out);
+    }
+}
+
+impl LongDataStreams {
+    pub fn position(&self) -> LongDataPosition {
+        LongDataPosition {
+            present: self.present.position(),
+            data: self.data.position(),
+        }
+    }
 }
 
 impl LongData {
     pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
-        let mut out = Self {
-            column_id: cid,
+        let streams = LongDataStreams {
             present: BooleanRLE::new(&config.compression),
             data: SignedIntRLEv1::new(&config.compression),
+        };
+        Self {
+            column_id: cid,
             stripe_stats: LongStatistics::new(),
             row_group_stats: LongStatistics::new(),
-            row_group_position: Vec::new(),
+            row_group_position: streams.position(),
             row_index_entries: Vec::new(),
             schema: schema.clone(),
             config: config.clone(),
-        };
-        out.record_position();
-        out
-    }
-
-    fn record_position(&mut self) {
-        self.row_group_position.clear();
-        self.present.record_position(&mut self.row_group_position);
-        self.data.record_position(&mut self.row_group_position);
-    }
-
-    fn finish_row_group(&mut self) {
-        if self.row_group_stats.num_values > 0 {
-            self.stripe_stats.merge(&self.row_group_stats);
-            
-            let mut row_index_entry = orc_proto::RowIndexEntry::new();
-            row_index_entry.set_positions(self.row_group_position.clone());
-            row_index_entry.set_statistics(Statistics::Long(self.row_group_stats).to_proto());
-            self.row_index_entries.push(row_index_entry);
-            
-            self.record_position();
-            self.row_group_stats = LongStatistics::new();
+            streams,
         }
     }
 
@@ -68,9 +81,21 @@ impl LongData {
         }
     }
 
+    fn finish_row_group(&mut self) {
+        if self.row_group_stats.num_values > 0 {
+            self.stripe_stats.merge(&self.row_group_stats);
+            self.row_index_entries.push(LongRowIndexEntry {
+                position: self.row_group_position,
+                stats: self.row_group_stats,
+            });
+            self.row_group_position = self.streams.position();
+            self.row_group_stats = LongStatistics::new();
+        }
+    }
+
     pub fn write(&mut self, x: i64) {
-        self.present.write(true);
-        self.data.write(x);
+        self.streams.present.write(true);
+        self.streams.data.write(x);
         self.row_group_stats.update(x);
         self.check_row_group();
     }
@@ -82,7 +107,7 @@ impl LongData {
 
 impl GenericData for LongData {
     fn write_null(&mut self) {
-        self.present.write(false);
+        self.streams.present.write(false);
         self.row_group_stats.update_null();
         self.check_row_group();
     }
@@ -94,8 +119,15 @@ impl BaseData for LongData {
 
     fn write_index_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
         self.finish_row_group();
-        let row_index_entries = mem::replace(&mut self.row_index_entries, Vec::new());
-        println!("row_index {:?}", &row_index_entries);
+        let mut row_index_entries: Vec<orc_proto::RowIndexEntry> = Vec::new();
+        for entry in &self.row_index_entries {
+            let mut row_index_entry = orc_proto::RowIndexEntry::new();
+            let mut positions: Vec<u64> = Vec::new();
+            entry.position.record(self.stripe_stats.has_null(), &mut positions);
+            row_index_entry.set_positions(positions);
+            row_index_entry.set_statistics(Statistics::Long(entry.stats).to_proto());
+            row_index_entries.push(row_index_entry);
+        }
         write_index(row_index_entries, self.column_id(), &self.config.compression, out, stream_infos_out)?;
         Ok(())
     }
@@ -103,7 +135,7 @@ impl BaseData for LongData {
     fn write_data_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
         if self.stripe_stats.has_null() {
             let present_start_pos = out.pos();
-            self.present.finish(out)?;
+            self.streams.present.finish(out)?;
             let present_len = (out.pos() - present_start_pos) as u64;
             stream_infos_out.push(StreamInfo {
                 kind: orc_proto::Stream_Kind::PRESENT,
@@ -113,7 +145,7 @@ impl BaseData for LongData {
         }
 
         let data_start_pos = out.pos();
-        self.data.finish(out)?;
+        self.streams.data.finish(out)?;
         let data_len = (out.pos() - data_start_pos) as u64;
         stream_infos_out.push(StreamInfo {
             kind: orc_proto::Stream_Kind::DATA,
@@ -135,7 +167,7 @@ impl BaseData for LongData {
     }
 
     fn estimated_size(&self) -> usize {
-        self.present.estimated_size() + self.data.estimated_size()
+        self.streams.present.estimated_size() + self.streams.data.estimated_size()
     }
 
     fn verify_row_count(&self, expected_row_count: u64) {

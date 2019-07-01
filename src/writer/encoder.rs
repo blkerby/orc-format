@@ -1,6 +1,6 @@
-pub use boolean_rle::BooleanRLE;
-pub use byte_rle::ByteRLE;
-pub use int_rle_v1::{SignedIntRLEv1, UnsignedIntRLEv1};
+pub use boolean_rle::{BooleanRLE, BooleanRLEPosition};
+pub use byte_rle::{ByteRLE, ByteRLEPosition};
+pub use int_rle_v1::{SignedIntRLEv1, UnsignedIntRLEv1, IntRLEv1Position};
 pub use varint::VarInt;
 
 mod boolean_rle;

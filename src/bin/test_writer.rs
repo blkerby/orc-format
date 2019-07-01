@@ -8,8 +8,8 @@ fn main() -> Result<()> {
     let schema = Schema::Struct(vec![
         Field("x".to_owned(), Schema::Long), 
         Field("y".to_owned(), Schema::Long),
-        // Field("z".to_owned(), Schema::String),
-        // Field("a".to_owned(), Schema::Double),
+        Field("z".to_owned(), Schema::String),
+        Field("a".to_owned(), Schema::Double),
         // Field("b".to_owned(), Schema::Float),
         // Field("c".to_owned(), Schema::Date),
         // Field("d".to_owned(), Schema::Boolean),
@@ -40,16 +40,16 @@ fn main() -> Result<()> {
             y.write(n * batch_size + j * j);
         }
         y.write_null();
-        // let z = root.child(2).unwrap_string();
-        // z.write_null();
-        // for j in 0..(batch_size - 1) {
-        //     let s = format!("hello {}", j / 3);
-        //     z.write(&s);
-        // }
-        // let a = root.child(3).unwrap_double();
-        // for j in 0..batch_size {
-        //     a.write(((j / 3) as f64) * 0.01);
-        // }
+        let z = root.child(2).unwrap_string();
+        z.write_null();
+        for j in 0..(batch_size - 1) {
+            let s = format!("hello {}", j / 3);
+            z.write(&s);
+        }
+        let a = root.child(3).unwrap_double();
+        for j in 0..batch_size {
+            a.write(((j / 3) as f64) * 0.01);
+        }
         // let b = root.child(4).unwrap_float();
         // for j in 0..batch_size {
         //     b.write(((j / 3) as f32) * 0.5);
@@ -58,7 +58,7 @@ fn main() -> Result<()> {
         // for j in 0..batch_size {
         //     c.write(j);
         // }
-        // let d = root.child(6).unwrap_boolean();
+        // let d = root.child(1).unwrap_boolean();
         // for j in 0..batch_size {
         //     d.write((j % 3 == 0) as bool);
         // }

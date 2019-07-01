@@ -1,13 +1,28 @@
 use crate::writer::compression::Compression;
 use std::io::{Write, Result};
 
-use crate::writer::encoder::byte_rle::ByteRLE;
+use crate::writer::encoder::byte_rle::{ByteRLE, ByteRLEPosition};
 
 
 pub struct BooleanRLE {
     byte_rle: ByteRLE,
     buf: u8,
     cnt: u8,
+}
+
+#[derive(Copy, Clone)]
+pub struct BooleanRLEPosition {
+    // Position in the underlying ByteRLE
+    inner: ByteRLEPosition,
+    // Bit position (between 0 and 7) within the byte
+    bits: u8,
+}
+
+impl BooleanRLEPosition {
+    pub fn record(&self, out: &mut Vec<u64>) {
+        self.inner.record(out);
+        out.push(self.bits as u64);
+    }
 }
 
 impl BooleanRLE {
@@ -19,9 +34,11 @@ impl BooleanRLE {
         }
     }
 
-    pub fn record_position(&self, out: &mut Vec<u64>) {
-        self.byte_rle.record_position(out);
-        out.push(self.cnt as u64);
+    pub fn position(&self) -> BooleanRLEPosition {
+        BooleanRLEPosition {
+            inner: self.byte_rle.position(),
+            bits: self.cnt,
+        }
     }
 
     #[inline(always)]
