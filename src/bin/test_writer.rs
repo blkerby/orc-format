@@ -13,12 +13,12 @@ fn main() -> Result<()> {
         Field("b".to_owned(), Schema::Float),
         Field("c".to_owned(), Schema::Date),
         Field("d".to_owned(), Schema::Boolean),
-        // Field("e".to_owned(), Schema::Decimal(15, 2)),
-        // Field("f".to_owned(), Schema::List(Box::new(Schema::Long))),
-        // Field("g".to_owned(), Schema::Map(Box::new(Schema::String), Box::new(Schema::Boolean))),
-        // Field("h".to_owned(), Schema::Timestamp),
-        // Field("i".to_owned(), Schema::Union(vec![Schema::Long, Schema::Float])),
-        // Field("k".to_owned(), Schema::Binary),
+        Field("e".to_owned(), Schema::Decimal(15, 2)),
+        Field("f".to_owned(), Schema::List(Box::new(Schema::Long))),
+        Field("g".to_owned(), Schema::Map(Box::new(Schema::String), Box::new(Schema::Boolean))),
+        Field("h".to_owned(), Schema::Timestamp),
+        Field("i".to_owned(), Schema::Binary),
+        Field("k".to_owned(), Schema::Union(vec![Schema::Long, Schema::Float])),
     ]);
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
@@ -62,55 +62,56 @@ fn main() -> Result<()> {
         for j in 0..batch_size {
             d.write((j % 3 == 0) as bool);
         }
-        // let e = root.child(7).unwrap_decimal64();
-        // for j in 0..batch_size {
-        //     e.write(j - batch_size / 2);
-        // }
-        // let f = root.child(8).unwrap_list();
-        // let f1 = f.child().unwrap_long();
-        // for j in 0..(batch_size * (batch_size - 1) / 2) {
-        //     f1.write(j);
-        // }
-        // for j in 0..batch_size {
-        //     f.write(j as u64);
-        // }
+        let e = root.child(7).unwrap_decimal64();
+        for j in 0..batch_size {
+            e.write(j - batch_size / 2);
+        }
+        let f = root.child(8).unwrap_list();
+        let f1 = f.child().unwrap_long();
+        for j in 0..(batch_size * 3) {
+            f1.write(j);
+        }
+        for _ in 0..batch_size {
+            f.write(3 as u64);
+        }
         
-        // let g = root.child(9).unwrap_map();
-        // let (gkey, gval) = g.children();
-        // let gkey_s = gkey.unwrap_string();
-        // let gval_b = gval.unwrap_boolean();
-        // for _ in 0..batch_size {
-        //     gkey_s.write("param");
-        //     gkey_s.write("setting");
-        // }
-        // for j in 0..batch_size {
-        //     gval_b.write((j % 2) != 0);
-        //     gval_b.write(((j + 1) % 2) != 0);
-        // }
-        // for _ in 0..batch_size {
-        //     g.write(2);
-        // }
+        let g = root.child(9).unwrap_map();
+        let (gkey, gval) = g.children();
+        let gkey_s = gkey.unwrap_string();
+        let gval_b = gval.unwrap_boolean();
+        for _ in 0..batch_size {
+            gkey_s.write("param");
+            gkey_s.write("setting");
+        }
+        for j in 0..batch_size {
+            gval_b.write((j % 2) != 0);
+            gval_b.write(((j + 1) % 2) != 0);
+        }
+        for _ in 0..batch_size {
+            g.write(2);
+        }
 
-        // let h = root.child(10).unwrap_timestamp();
-        // for j in 0..batch_size {
-        //     h.write_nanos(j, 10u32.pow((j % 9) as u32));
-        // }
+        let h = root.child(10).unwrap_timestamp();
+        for j in 0..batch_size {
+            h.write_nanos(j, 10u32.pow((j % 9) as u32));
+        }
 
-        // let i = root.child(11).unwrap_union();
-        // for j in 0..batch_size {
-        //     if j % 2 == 0 {
-        //         i.child(0).unwrap_long().write(j);
-        //         i.write(0);
-        //     } else {
-        //         i.child(1).unwrap_float().write(j as f32);
-        //         i.write(1);
-        //     }
-        // }
+        let i = root.child(11).unwrap_binary();
+        for _ in 0..batch_size {
+            i.write(b"abc");
+        }
 
-        // let k = root.child(12).unwrap_binary();
-        // for _ in 0..batch_size {
-        //     k.write(b"abc");
-        // }
+        let k = root.child(12).unwrap_union();
+        for j in 0..batch_size {
+            if j % 2 == 0 {
+                k.child(0).unwrap_long().write(j);
+                k.write(0);
+            } else {
+                k.child(1).unwrap_float().write(j as f32);
+                k.write(1);
+            }
+        }
+
 
         for _ in 0..batch_size {
             root.write();

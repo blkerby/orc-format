@@ -165,7 +165,7 @@ impl BaseData for DoubleData {
     }
 
     fn verify_row_count(&self, expected_row_count: u64) {
-        let rows_written = self.stripe_stats.num_values();
+        let rows_written = self.stripe_stats.num_values() + self.row_group_stats.num_values();
         if rows_written != expected_row_count {
             panic!("In column {} (type Double), the number of values written ({}) does not match the expected number ({})", 
                 self.column_id, rows_written, expected_row_count);
