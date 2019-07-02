@@ -1,4 +1,4 @@
-/src/protos
+/src/protos/orc_proto.rs
 /target
 **/*.rs.bk
 
