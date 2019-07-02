@@ -198,7 +198,7 @@ impl BaseData for StructData {
         }
 
         for child in &self.children {
-            child.verify_row_count(self.stripe_stats.num_present());
+            child.verify_row_count(self.stripe_stats.num_present() + self.row_group_stats.num_present());
         }
     }
 

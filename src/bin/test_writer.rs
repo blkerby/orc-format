@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     let mut out = File::create("target/test.orc")?;
     let config = Config::new().with_compression(SnappyCompression::new().build());
     let mut writer = Writer::new(&mut out, &schema, config)?;
-    let batch_size: i64 = 100000;
+    let batch_size: i64 = 12345;
     for n in 0..1 {
     // for n in 0..100000 {
         let data = writer.data();
