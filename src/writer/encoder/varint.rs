@@ -60,7 +60,7 @@ impl VarInt for i64 {
 impl VarInt for u128 {
     #[inline(always)]
     fn write_varint(mut self, out: &mut CompressionStream) {
-        let mut buf = [0; 10];
+        let mut buf = [0; 19];
         let mut len: usize = 0;
 
         for i in 0..19 {
