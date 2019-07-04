@@ -8,13 +8,12 @@ use count_write::CountWrite;
 use statistics::{BaseStatistics, Statistics};
 use stripe::{Stripe, StripeInfo};
 
-pub use data::{Data, GenericData, BaseData, BinaryData, BooleanData, DecimalData, 
-    DoubleData, FloatData, ListData, LongData, MapData, StringData, StructData, TimestampData, UnionData};
-pub use compression::{Compression, CompressionStream, NoCompression, SnappyCompression};
+use data::{Data, BaseData};
+use compression::{Compression, CompressionStream, NoCompression};
 
-mod compression;
+pub mod compression;
+pub mod data;
 mod stripe;
-mod data;
 mod encoder;
 mod statistics;
 mod count_write;

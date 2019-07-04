@@ -1,6 +1,6 @@
 use crate::writer::compression::{CompressionStream};
 
-pub trait VarInt: Copy + Default + Eq {
+pub(crate) trait VarInt: Copy + Default + Eq {
     fn write_varint(self, out: &mut CompressionStream);
     fn wrapping_sub(self, rhs: Self) -> Self;
     fn fits_i8(self) -> bool;

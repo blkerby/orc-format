@@ -1,6 +1,7 @@
 use orc_format::schema::{Schema, Field};
-use orc_format::writer::SnappyCompression;
-use orc_format::writer::{GenericData, Config, Writer};
+use orc_format::writer::compression::{ZstdCompression, SnappyCompression};
+use orc_format::writer::data::GenericData;
+use orc_format::writer::{Config, Writer};
 use std::fs::File;
 use std::io::Result;
 
@@ -23,7 +24,7 @@ fn main() -> Result<()> {
     // let schema = Schema::Long;
     // let mut out = File::create("/dev/null")?;
     let mut out = File::create("target/test.orc")?;
-    let config = Config::new().with_compression(SnappyCompression::new().build());
+    let config = Config::new().with_compression(ZstdCompression::new().build()); //SnappyCompression::new().build());
     let mut writer = Writer::new(&mut out, &schema, config)?;
     let batch_size: i64 = 12345;
     for n in 0..1 {

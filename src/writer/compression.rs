@@ -8,10 +8,12 @@ use common::{CompressionTrait, Compressor};
 
 pub use no_compression::NoCompression;
 pub use snappy::SnappyCompression;
+pub use self::zstd::ZstdCompression;
 
 mod common;
 mod no_compression;
 mod snappy;
+mod zstd;
 
 #[derive(Clone)]
 pub struct Compression(CompressionEnum);
@@ -31,9 +33,10 @@ impl Compression {
 }
 
 #[derive(Clone)]
-pub enum CompressionEnum {
+enum CompressionEnum {
     No(NoCompression),
     Snappy(SnappyCompression),
+    Zstd(ZstdCompression),
 }
 
 // We could eliminate this boilerplate using enum-dispatch, but it doesn't work yet with RLS.
@@ -43,6 +46,7 @@ impl CompressionTrait for CompressionEnum {
         match self {
             CompressionEnum::No(x) => x.kind(),
             CompressionEnum::Snappy(x) => x.kind(),
+            CompressionEnum::Zstd(x) => x.kind(),
         }
     }
 
@@ -50,6 +54,7 @@ impl CompressionTrait for CompressionEnum {
         match self {
             CompressionEnum::No(x) => x.block_size(),
             CompressionEnum::Snappy(x) => x.block_size(),
+            CompressionEnum::Zstd(x) => x.block_size(),
         }
     }
 
@@ -57,6 +62,7 @@ impl CompressionTrait for CompressionEnum {
         match self {
             CompressionEnum::No(x) => x.compressor(),
             CompressionEnum::Snappy(x) => x.compressor(),
+            CompressionEnum::Zstd(x) => x.compressor(),
         }
     }
 
@@ -74,12 +80,19 @@ impl SnappyCompression {
     }
 }
 
+impl ZstdCompression {
+    pub fn build(self) -> Compression {
+        Compression(CompressionEnum::Zstd(self))
+    }
+
+}
+
 struct BlockInfo {
     is_original: bool,
     length: usize,
 }
 
-pub struct CompressionStream {
+pub(crate) struct CompressionStream {
     compressor: Option<Box<dyn Compressor>>,
     buf: Buffer,
     output: Buffer,
@@ -87,7 +100,7 @@ pub struct CompressionStream {
 }
 
 #[derive(Copy, Clone)]
-pub struct CompressionStreamPosition {
+pub(crate) struct CompressionStreamPosition {
     // Offset of the start of the compression block (if applicable)
     block_start: Option<u64>,
     // Offset within the block
