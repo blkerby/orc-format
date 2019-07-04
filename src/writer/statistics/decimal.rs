@@ -2,16 +2,16 @@ use std::fmt::Write;
 use super::common::BaseStatistics;
 
 #[derive(Debug, Copy, Clone)]
-pub struct Decimal64Statistics {
+pub struct DecimalStatistics {
     pub scale: u32,
     pub num_values: u64,
     pub num_present: u64,
-    pub min: Option<i64>,
-    pub max: Option<i64>,
-    pub sum: Option<i64>,
+    pub min: Option<i128>,
+    pub max: Option<i128>,
+    pub sum: Option<i128>,
 }
 
-fn merge_min(x: &mut Option<i64>, y: Option<i64>) {
+fn merge_min(x: &mut Option<i128>, y: Option<i128>) {
     if let Some(yv) = y {
         if let Some(xv) = x {
             if yv < *xv {
@@ -23,7 +23,7 @@ fn merge_min(x: &mut Option<i64>, y: Option<i64>) {
     }
 }
 
-fn merge_max(x: &mut Option<i64>, y: Option<i64>) {
+fn merge_max(x: &mut Option<i128>, y: Option<i128>) {
     if let Some(yv) = y {
         if let Some(xv) = x {
             if yv > *xv {
@@ -35,7 +35,7 @@ fn merge_max(x: &mut Option<i64>, y: Option<i64>) {
     }
 }
 
-fn merge_sum(x: &mut Option<i64>, y: Option<i64>) {
+fn merge_sum(x: &mut Option<i128>, y: Option<i128>) {
     if let Some(yv) = y {
         if let Some(xv) = x {
             *x = xv.checked_add(yv);
@@ -47,7 +47,7 @@ fn merge_sum(x: &mut Option<i64>, y: Option<i64>) {
     }
 }
 
-impl Decimal64Statistics {
+impl DecimalStatistics {
     pub fn new(scale: u32) -> Self {
         Self {
             scale,
@@ -59,7 +59,7 @@ impl Decimal64Statistics {
         }
     }
 
-    pub fn update(&mut self, x: i64) {
+    pub fn update(&mut self, x: i128) {
         self.num_values += 1;
         self.num_present += 1;
         merge_min(&mut self.min, Some(x));
@@ -67,13 +67,13 @@ impl Decimal64Statistics {
         merge_sum(&mut self.sum, Some(x));
     }
 
-    pub fn format(&self, mut val: i64) -> String {
+    pub fn format(&self, mut val: i128) -> String {
         let mut out = String::new();
         if val < 0 {
             out.push_str("-");
             val = -val;
         }
-        let modulus = 10i64.pow(self.scale);
+        let modulus = 10i128.pow(self.scale);
         let quo = val / modulus;
         let rem = val % modulus;
         write!(&mut out, "{}", quo).unwrap();
@@ -84,7 +84,7 @@ impl Decimal64Statistics {
     }
 }
 
-impl BaseStatistics for Decimal64Statistics {
+impl BaseStatistics for DecimalStatistics {
     fn update_null(&mut self) {
         self.num_values += 1;
     }

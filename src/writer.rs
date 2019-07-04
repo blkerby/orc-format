@@ -8,7 +8,7 @@ use count_write::CountWrite;
 use statistics::{BaseStatistics, Statistics};
 use stripe::{Stripe, StripeInfo};
 
-pub use data::{Data, GenericData, BaseData, BinaryData, BooleanData, Decimal64Data, 
+pub use data::{Data, GenericData, BaseData, BinaryData, BooleanData, DecimalData, 
     DoubleData, FloatData, ListData, LongData, MapData, StringData, StructData, TimestampData, UnionData};
 pub use compression::{Compression, CompressionStream, NoCompression, SnappyCompression};
 
@@ -180,7 +180,7 @@ impl<W: Write> Writer<W> {
                 t.set_kind(orc_proto::Type_Kind::TIMESTAMP);
                 types.push(t);
             }
-            Data::Decimal64(d) => {
+            Data::Decimal(d) => {
                 t.set_kind(orc_proto::Type_Kind::DECIMAL);
                 t.set_precision(d.precision());
                 t.set_scale(d.scale());

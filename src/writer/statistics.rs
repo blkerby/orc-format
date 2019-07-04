@@ -6,7 +6,7 @@ pub use boolean::BooleanStatistics;
 pub use long::LongStatistics;
 pub use string::StringStatistics;
 pub use double::DoubleStatistics;
-pub use decimal64::Decimal64Statistics;
+pub use decimal::DecimalStatistics;
 pub use timestamp::TimestampStatistics;
 pub use binary::BinaryStatistics;
 
@@ -16,7 +16,7 @@ mod long;
 mod generic;
 mod string;
 mod double;
-mod decimal64;
+mod decimal;
 mod timestamp;
 mod binary;
 
@@ -25,7 +25,7 @@ pub enum Statistics {
     Boolean(BooleanStatistics),
     Long(LongStatistics),
     Double(DoubleStatistics),
-    Decimal64(Decimal64Statistics),
+    Decimal(DecimalStatistics),
     Timestamp(TimestampStatistics),
     String(StringStatistics),
     Binary(BinaryStatistics),
@@ -41,8 +41,8 @@ impl Statistics {
         if let Statistics::Long(x) = self { x } else { panic!("invalid argument to unwrap_long"); }
     }
 
-    pub fn unwrap_decimal64(&self) -> &Decimal64Statistics { 
-        if let Statistics::Decimal64(x) = self { x } else { panic!("invalid argument to unwrap_decimal64"); }
+    pub fn unwrap_decimal(&self) -> &DecimalStatistics { 
+        if let Statistics::Decimal(x) = self { x } else { panic!("invalid argument to unwrap_decimal"); }
     }
 
     pub fn unwrap_string(&self) -> &StringStatistics { 
@@ -82,7 +82,7 @@ impl Statistics {
                 if let Some(x) = long_statistics.sum { int_stat.set_sum(x); }
                 stat.set_intStatistics(int_stat);
             }
-            Statistics::Decimal64(d) => {
+            Statistics::Decimal(d) => {
                 let mut dec_stat = orc_proto::DecimalStatistics::new();
                 if let Some(x) = d.min { dec_stat.set_minimum(d.format(x)); }
                 if let Some(x) = d.max { dec_stat.set_maximum(d.format(x)); }
@@ -126,7 +126,7 @@ impl BaseStatistics for Statistics {
             Statistics::Boolean(x) => x.update_null(),
             Statistics::Long(x) => x.update_null(),
             Statistics::Double(x) => x.update_null(),
-            Statistics::Decimal64(x) => x.update_null(),
+            Statistics::Decimal(x) => x.update_null(),
             Statistics::Timestamp(x) => x.update_null(),
             Statistics::String(x) => x.update_null(),
             Statistics::Binary(x) => x.update_null(),
@@ -139,7 +139,7 @@ impl BaseStatistics for Statistics {
             Statistics::Boolean(x) => x.num_values(),
             Statistics::Long(x) => x.num_values(),
             Statistics::Double(x) => x.num_values(),
-            Statistics::Decimal64(x) => x.num_values(),
+            Statistics::Decimal(x) => x.num_values(),
             Statistics::Timestamp(x) => x.num_values(),
             Statistics::String(x) => x.num_values(),
             Statistics::Binary(x) => x.num_values(),
@@ -152,7 +152,7 @@ impl BaseStatistics for Statistics {
             Statistics::Boolean(x) => x.num_present(),
             Statistics::Long(x) => x.num_present(),
             Statistics::Double(x) => x.num_present(),
-            Statistics::Decimal64(x) => x.num_present(),
+            Statistics::Decimal(x) => x.num_present(),
             Statistics::Timestamp(x) => x.num_present(),
             Statistics::String(x) => x.num_present(),
             Statistics::Binary(x) => x.num_present(),
@@ -165,7 +165,7 @@ impl BaseStatistics for Statistics {
             Statistics::Boolean(x) => x.merge(rhs.unwrap_boolean()),
             Statistics::Long(x) => x.merge(rhs.unwrap_long()),
             Statistics::Double(x) => x.merge(rhs.unwrap_double()),
-            Statistics::Decimal64(x) => x.merge(rhs.unwrap_decimal64()),
+            Statistics::Decimal(x) => x.merge(rhs.unwrap_decimal()),
             Statistics::Timestamp(x) => x.merge(rhs.unwrap_timestamp()),
             Statistics::String(x) => x.merge(rhs.unwrap_string()),
             Statistics::Binary(x) => x.merge(rhs.unwrap_binary()),

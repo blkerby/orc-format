@@ -7,7 +7,7 @@ struct IntRLEv1<T: VarInt> {
     buf: Vec<T>,
     run_len: u8,
     last_val: T,
-    delta: i64,
+    delta: T,
 }
 
 #[derive(Copy, Clone)]
@@ -30,7 +30,7 @@ impl<T: VarInt> IntRLEv1<T> {
             buf: Vec::new(),
             run_len: 0,
             last_val: T::default(),
-            delta: 0,
+            delta: T::default(),
         }
     }
 
@@ -52,7 +52,7 @@ impl<T: VarInt> IntRLEv1<T> {
             self.finish_group();
         }
         if self.run_len > 0 {
-            if x.wrapping_sub_i64(self.last_val) == self.delta {
+            if x.wrapping_sub(self.last_val) == self.delta {
                 self.run_len += 1
             } else {
                 self.finish_group();
@@ -65,8 +65,8 @@ impl<T: VarInt> IntRLEv1<T> {
                 return;
             }
 
-            let delta = x.wrapping_sub_i64(*self.buf.last().unwrap());
-            if len >= 2 && delta == self.delta && delta >= -128 && delta <= 127 {
+            let delta = x.wrapping_sub(*self.buf.last().unwrap());
+            if len >= 2 && delta == self.delta && delta.fits_i8() {
                 self.buf.pop().unwrap();
                 let y = self.buf.pop().unwrap();
                 self.finish_group();
@@ -83,7 +83,7 @@ impl<T: VarInt> IntRLEv1<T> {
     pub fn finish_group(&mut self) {
         if self.run_len > 0 {
             self.sink.write_u8(self.run_len - 3);
-            self.sink.write_u8(self.delta as u8);
+            self.sink.write_u8(self.delta.to_u8());
             self.buf[0].write_varint(&mut self.sink);
             self.buf.clear();
             self.run_len = 0;

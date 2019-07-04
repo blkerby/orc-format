@@ -13,7 +13,7 @@ pub use long::LongData;
 pub use float::FloatData;
 pub use double::DoubleData;
 pub use timestamp::TimestampData;
-pub use decimal64::Decimal64Data;
+pub use decimal::DecimalData;
 pub use string::StringData;
 pub use binary::BinaryData;
 pub use struct_::StructData;
@@ -27,7 +27,7 @@ mod long;
 mod float;
 mod double;
 mod timestamp;
-mod decimal64;
+mod decimal;
 mod string;
 mod binary;
 mod struct_;
@@ -41,7 +41,7 @@ pub enum Data {
     Float(FloatData),
     Double(DoubleData),
     Timestamp(TimestampData),
-    Decimal64(Decimal64Data),
+    Decimal(DecimalData),
     String(StringData),
     Binary(BinaryData),
     List(ListData),
@@ -59,7 +59,7 @@ impl Data {
             Schema::Float => Data::Float(FloatData::new(config, column_id)),
             Schema::Double => Data::Double(DoubleData::new(config, column_id)),
             Schema::Timestamp => Data::Timestamp(TimestampData::new(config, column_id)),
-            Schema::Decimal(_, _) => Data::Decimal64(Decimal64Data::new(schema, config, column_id)),
+            Schema::Decimal(_, _) => Data::Decimal(DecimalData::new(schema, config, column_id)),
             Schema::String | Schema::VarChar(_) | Schema::Char(_) => 
                 Data::String(StringData::new(schema, config, column_id)),
             Schema::Binary => Data::Binary(BinaryData::new(config, column_id)),
@@ -90,8 +90,8 @@ impl Data {
         if let Data::Timestamp(x) = self { x } else { panic!("unwrap_timestamp called on incorrect type of data"); }
     }
 
-    pub fn unwrap_decimal64(&mut self) -> &mut Decimal64Data {
-        if let Data::Decimal64(x) = self { x } else { panic!("unwrap_decimal64 called on incorrect type of data"); }
+    pub fn unwrap_decimal(&mut self) -> &mut DecimalData {
+        if let Data::Decimal(x) = self { x } else { panic!("unwrap_decimal called on incorrect type of data"); }
     }
 
     pub fn unwrap_string(&mut self) -> &mut StringData {
@@ -127,7 +127,7 @@ impl GenericData for Data {
             Data::Float(x) => x.write_null(),
             Data::Double(x) => x.write_null(),
             Data::Timestamp(x) => x.write_null(),
-            Data::Decimal64(x) => x.write_null(),
+            Data::Decimal(x) => x.write_null(),
             Data::String(x) => x.write_null(),
             Data::Binary(x) => x.write_null(),
             Data::Struct(x) => x.write_null(),
@@ -148,7 +148,7 @@ impl BaseData for Data {
             Data::Float(x) => x.column_id(),
             Data::Double(x) => x.column_id(),
             Data::Timestamp(x) => x.column_id(),
-            Data::Decimal64(x) => x.column_id(),
+            Data::Decimal(x) => x.column_id(),
             Data::String(x) => x.column_id(),
             Data::Binary(x) => x.column_id(),
             Data::Struct(x) => x.column_id(),
@@ -165,7 +165,7 @@ impl BaseData for Data {
             Data::Float(x) => x.write_index_streams(out, stream_infos_out),
             Data::Double(x) => x.write_index_streams(out, stream_infos_out),
             Data::Timestamp(x) => x.write_index_streams(out, stream_infos_out),
-            Data::Decimal64(x) => x.write_index_streams(out, stream_infos_out),
+            Data::Decimal(x) => x.write_index_streams(out, stream_infos_out),
             Data::String(x) => x.write_index_streams(out, stream_infos_out),
             Data::Binary(x) => x.write_index_streams(out, stream_infos_out),
             Data::Struct(x) => x.write_index_streams(out, stream_infos_out),
@@ -182,7 +182,7 @@ impl BaseData for Data {
             Data::Float(x) => x.write_data_streams(out, stream_infos_out),
             Data::Double(x) => x.write_data_streams(out, stream_infos_out),
             Data::Timestamp(x) => x.write_data_streams(out, stream_infos_out),
-            Data::Decimal64(x) => x.write_data_streams(out, stream_infos_out),
+            Data::Decimal(x) => x.write_data_streams(out, stream_infos_out),
             Data::String(x) => x.write_data_streams(out, stream_infos_out),
             Data::Binary(x) => x.write_data_streams(out, stream_infos_out),
             Data::Struct(x) => x.write_data_streams(out, stream_infos_out),
@@ -199,7 +199,7 @@ impl BaseData for Data {
             Data::Float(x) => x.column_encodings(out),
             Data::Double(x) => x.column_encodings(out),
             Data::Timestamp(x) => x.column_encodings(out),
-            Data::Decimal64(x) => x.column_encodings(out),
+            Data::Decimal(x) => x.column_encodings(out),
             Data::String(x) => x.column_encodings(out),
             Data::Binary(x) => x.column_encodings(out),
             Data::Struct(x) => x.column_encodings(out),
@@ -216,7 +216,7 @@ impl BaseData for Data {
             Data::Float(x) => x.statistics(out),
             Data::Double(x) => x.statistics(out),
             Data::Timestamp(x) => x.statistics(out),
-            Data::Decimal64(x) => x.statistics(out),
+            Data::Decimal(x) => x.statistics(out),
             Data::String(x) => x.statistics(out),
             Data::Binary(x) => x.statistics(out),
             Data::Struct(x) => x.statistics(out),
@@ -233,7 +233,7 @@ impl BaseData for Data {
             Data::Float(x) => x.verify_row_count(row_count),
             Data::Double(x) => x.verify_row_count(row_count),
             Data::Timestamp(x) => x.verify_row_count(row_count),
-            Data::Decimal64(x) => x.verify_row_count(row_count),
+            Data::Decimal(x) => x.verify_row_count(row_count),
             Data::String(x) => x.verify_row_count(row_count),
             Data::Binary(x) => x.verify_row_count(row_count),
             Data::Struct(x) => x.verify_row_count(row_count),
@@ -250,7 +250,7 @@ impl BaseData for Data {
             Data::Float(x) => x.estimated_size(),
             Data::Double(x) => x.estimated_size(),
             Data::Timestamp(x) => x.estimated_size(),
-            Data::Decimal64(x) => x.estimated_size(),
+            Data::Decimal(x) => x.estimated_size(),
             Data::String(x) => x.estimated_size(),
             Data::Binary(x) => x.estimated_size(),
             Data::Struct(x) => x.estimated_size(),

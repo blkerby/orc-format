@@ -7,23 +7,23 @@ use crate::writer::count_write::CountWrite;
 use crate::writer::compression::{CompressionStream, CompressionStreamPosition};
 use crate::writer::encoder::{BooleanRLE, BooleanRLEPosition, SignedIntRLEv1, IntRLEv1Position, VarInt};
 use crate::writer::stripe::StreamInfo;
-use crate::writer::statistics::{Statistics, BaseStatistics, Decimal64Statistics};
+use crate::writer::statistics::{Statistics, BaseStatistics, DecimalStatistics};
 use crate::writer::data::common::{GenericData, BaseData, write_index};
 
 
-pub struct Decimal64Data {
+pub struct DecimalData {
     pub(crate) column_id: u32,
     precision: u32,
     scale: u32,
-    streams: Decimal64DataStreams,
-    stripe_stats: Decimal64Statistics,
-    row_group_stats: Decimal64Statistics,
-    row_group_position: Decimal64DataPosition,
-    row_index_entries: Vec<Decimal64RowIndexEntry>,
+    streams: DecimalDataStreams,
+    stripe_stats: DecimalStatistics,
+    row_group_stats: DecimalStatistics,
+    row_group_position: DecimalDataPosition,
+    row_index_entries: Vec<DecimalRowIndexEntry>,
     config: Config,
 }
 
-struct Decimal64DataStreams {
+struct DecimalDataStreams {
     present: BooleanRLE,
     data: CompressionStream,
     // Only the constant 'scale' is repeatedly written to this. It is only included to satisfy 
@@ -32,18 +32,18 @@ struct Decimal64DataStreams {
 }
 
 #[derive(Copy, Clone)]
-struct Decimal64DataPosition {
+struct DecimalDataPosition {
     present: BooleanRLEPosition,
     data: CompressionStreamPosition,
     secondary_scale: IntRLEv1Position,
 }
 
-struct Decimal64RowIndexEntry {
-    position: Decimal64DataPosition,
-    stats: Decimal64Statistics,
+struct DecimalRowIndexEntry {
+    position: DecimalDataPosition,
+    stats: DecimalStatistics,
 }
 
-impl Decimal64DataPosition {
+impl DecimalDataPosition {
     pub fn record(&self, include_present: bool, out: &mut Vec<u64>) {
         if include_present {
             self.present.record(out);
@@ -53,9 +53,9 @@ impl Decimal64DataPosition {
     }
 }
 
-impl Decimal64DataStreams {
-    pub fn position(&self) -> Decimal64DataPosition {
-        Decimal64DataPosition {
+impl DecimalDataStreams {
+    pub fn position(&self) -> DecimalDataPosition {
+        DecimalDataPosition {
             present: self.present.position(),
             data: self.data.position(),
             secondary_scale: self.secondary_scale.position(),
@@ -63,12 +63,12 @@ impl Decimal64DataStreams {
     }
 }
 
-impl Decimal64Data {
+impl DecimalData {
     pub(crate) fn new(schema: &Schema, config: &Config, column_id: &mut u32) -> Self {
         let cid = *column_id;
         *column_id += 1;
         if let Schema::Decimal(precision, scale) = schema {
-            let streams = Decimal64DataStreams {
+            let streams = DecimalDataStreams {
                 present: BooleanRLE::new(&config.compression),
                 data: CompressionStream::new(&config.compression),
                 secondary_scale: SignedIntRLEv1::new(&config.compression),
@@ -77,8 +77,8 @@ impl Decimal64Data {
                 column_id: cid,
                 precision: *precision,
                 scale: *scale,
-                stripe_stats: Decimal64Statistics::new(*scale),
-                row_group_stats: Decimal64Statistics::new(*scale),
+                stripe_stats: DecimalStatistics::new(*scale),
+                row_group_stats: DecimalStatistics::new(*scale),
                 row_group_position: streams.position(),
                 row_index_entries: Vec::new(),
                 config: config.clone(),
@@ -96,16 +96,24 @@ impl Decimal64Data {
     fn finish_row_group(&mut self) {
         if self.row_group_stats.num_values > 0 {
             self.stripe_stats.merge(&self.row_group_stats);
-            self.row_index_entries.push(Decimal64RowIndexEntry {
+            self.row_index_entries.push(DecimalRowIndexEntry {
                 position: self.row_group_position,
                 stats: self.row_group_stats,
             });
             self.row_group_position = self.streams.position();
-            self.row_group_stats = Decimal64Statistics::new(self.scale);
+            self.row_group_stats = DecimalStatistics::new(self.scale);
         }
     }
 
-    pub fn write(&mut self, x: i64) {
+    pub fn write_i64(&mut self, x: i64) {
+        self.streams.present.write(true);
+        x.write_varint(&mut self.streams.data);
+        self.streams.secondary_scale.write(self.scale as i64);
+        self.row_group_stats.update(x as i128);
+        self.check_row_group();
+    }
+
+    pub fn write_i128(&mut self, x: i128) {
         self.streams.present.write(true);
         x.write_varint(&mut self.streams.data);
         self.streams.secondary_scale.write(self.scale as i64);
@@ -118,7 +126,7 @@ impl Decimal64Data {
     pub fn scale(&self) -> u32 { self.scale }
 }
 
-impl GenericData for Decimal64Data {
+impl GenericData for DecimalData {
     fn write_null(&mut self) {
         self.streams.present.write(false);
         self.row_group_stats.update_null();
@@ -126,7 +134,7 @@ impl GenericData for Decimal64Data {
     }
 }
 
-impl BaseData for Decimal64Data {
+impl BaseData for DecimalData {
     fn column_id(&self) -> u32 { self.column_id }
 
     fn write_index_streams<W: Write>(&mut self, out: &mut CountWrite<W>, stream_infos_out: &mut Vec<StreamInfo>) -> Result<()> {
@@ -137,7 +145,7 @@ impl BaseData for Decimal64Data {
             let mut positions: Vec<u64> = Vec::new();
             entry.position.record(self.stripe_stats.has_null(), &mut positions);
             row_index_entry.set_positions(positions);
-            row_index_entry.set_statistics(Statistics::Decimal64(entry.stats).to_proto());
+            row_index_entry.set_statistics(Statistics::Decimal(entry.stats).to_proto());
             row_index_entries.push(row_index_entry);
         }
         write_index(row_index_entries, self.column_id(), &self.config.compression, out, stream_infos_out)?;
@@ -184,7 +192,7 @@ impl BaseData for Decimal64Data {
     }
 
     fn statistics(&self, out: &mut Vec<Statistics>) {
-        out.push(Statistics::Decimal64(self.stripe_stats));
+        out.push(Statistics::Decimal(self.stripe_stats));
     }
 
     fn estimated_size(&self) -> usize {
@@ -195,7 +203,7 @@ impl BaseData for Decimal64Data {
     fn verify_row_count(&self, expected_row_count: u64) {
         let rows_written = self.stripe_stats.num_values() + self.row_group_stats.num_values();
         if rows_written != expected_row_count {
-            panic!("In column {} (type Decimal64), the number of values written ({}) does not match the expected number ({})", 
+            panic!("In column {} (type Decimal), the number of values written ({}) does not match the expected number ({})", 
                 self.column_id, rows_written, expected_row_count);
         }
     }

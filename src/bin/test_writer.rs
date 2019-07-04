@@ -62,9 +62,9 @@ fn main() -> Result<()> {
         for j in 0..batch_size {
             d.write((j % 3 == 0) as bool);
         }
-        let e = root.child(7).unwrap_decimal64();
+        let e = root.child(7).unwrap_decimal();
         for j in 0..batch_size {
-            e.write(j - batch_size / 2);
+            e.write_i64(j - batch_size / 2);
         }
         let f = root.child(8).unwrap_list();
         let f1 = f.child().unwrap_long();
